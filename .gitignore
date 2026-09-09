@@ -1,0 +1,26 @@
+# ---- Dependencies : NEVER commit these ----
+node_modules/
+
+# ---- Environment & secrets : NEVER commit these ----
+.env
+.env.*
+!.env.example
+
+# ---- Build output ----
+dist/
+build/
+
+# ---- Logs ----
+logs/
+*.log
+
+# ---- OS junk ----
+.DS_Store
+Thumbs.db
+
+# ---- Editor / IDE ----
+.vscode/
+.idea/
+
+# ---- Test coverage ----
+coverage/
