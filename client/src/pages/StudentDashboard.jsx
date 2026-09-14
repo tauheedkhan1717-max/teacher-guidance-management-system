@@ -1,15 +1,18 @@
-// Student Dashboard — strictly read-only (MVP).
-// Fetches the signed-in student's own timeline via GET /api/progress/me.
+// Student Dashboard — strictly read-only.
+// Fetches the signed-in student's own timeline via GET /api/progress/me and their
+// group memberships via GET /api/students/me/memberships.
 // Defensive rendering throughout — never white-screens on empty/malformed responses.
 import { useCallback, useEffect, useState } from "react";
 import {
   Award,
   ClipboardList,
   GraduationCap,
+  Layers,
   Mail,
   RefreshCw,
   ShieldCheck,
   TrendingUp,
+  Users,
 } from "lucide-react";
 import api from "../api/axios.js";
 import { cn } from "../lib/utils.js";
@@ -41,23 +44,35 @@ function pctOf(entry) {
 export default function StudentDashboard() {
   const { user } = useAuth();
   const [entries, setEntries] = useState([]);
+  const [memberships, setMemberships] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
+    let entriesOk = false;
+    let membershipsOk = false;
     try {
       const res = await api.get("/progress/me");
-      // Tolerate { entries: [...] }, a bare array, or garbage — always end up with an array.
       const data = res.data?.entries ?? res.data ?? [];
       setEntries(Array.isArray(data) ? data : []);
+      entriesOk = true;
     } catch (err) {
       setError(err?.response?.data?.error?.message || "Could not load your progress. Please try again.");
       setEntries([]);
-    } finally {
-      setLoading(false);
     }
+    try {
+      const membersRes = await api.get("/students/me/memberships");
+      const membersData = membersRes.data?.memberships ?? membersRes.data ?? [];
+      setMemberships(Array.isArray(membersData) ? membersData : []);
+      membershipsOk = true;
+    } catch {
+      // A student with no profile yet, or no memberships, can 404 here in the wild —
+      // treat that as an empty list, not a white screen.
+      setMemberships([]);
+    }
+    if (entriesOk || membershipsOk) setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -103,6 +118,17 @@ export default function StudentDashboard() {
             <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur">
               <GraduationCap className="h-3.5 w-3.5" /> STUDENT · Read-only
             </span>
+            {memberships.length > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">
+                <Layers className="h-3.5 w-3.5" />
+                {memberships.length} group{memberships.length === 1 ? "" : "s"} enrolled
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-600">
+                <Layers className="h-3.5 w-3.5" />
+                No groups yet
+              </span>
+            )}
             <span className={cn("inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold", avgBadge)}>
               <Award className="h-3.5 w-3.5" />
               {averagePct !== null ? `${averagePct}% average` : "No marks yet"}
@@ -189,6 +215,40 @@ export default function StudentDashboard() {
           <p className="mt-4 text-sm text-slate-400">No remarks recorded yet.</p>
         )}
       </section>
+
+      {/* ---------- Your groups ---------- */}
+      {memberships.length > 0 ? (
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <Layers className="h-5 w-5 text-indigo-500" />
+            Your academic groups
+          </h2>
+          <ul className="mt-4 space-y-3">
+            {memberships.map((m) => (
+              <li key={m.membershipId ?? Math.random()} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-900">{m.group?.name || "Group"}</p>
+                {m.group?.teacher ? (
+                  <p className="mt-1 text-xs text-slate-500">
+                    Guide: {m.group.teacher.name || "—"}
+                    {m.group.teacher.email ? ` · ${m.group.teacher.email}` : ""}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-500">Guide: —</p>
+                )}
+                <p className="mt-1 text-xs text-slate-400">Joined {fmtDate(m.addedAt)}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : (
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <Layers className="h-5 w-5 text-slate-300" />
+            Your academic groups
+          </h2>
+          <p className="mt-2 text-sm text-slate-400">You are not enrolled in any group yet.</p>
+        </section>
+      )}
 
       {/* ---------- Read-only notice ---------- */}
       <p className="flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">

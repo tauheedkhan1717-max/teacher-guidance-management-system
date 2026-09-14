@@ -40,6 +40,57 @@ export const registerTeacherSchema = z
 
 // A2 (RESOLVED by user 2026-09): students may edit ONLY phone + address.
 // Academic fields (rollNumber, classId, batch, yearOfAdmission) are rejected by .strict().
+// ---------- Progress types ----------
+
+// Matches the ProgressType enum in prisma/schema.prisma.
+export const PROGRESS_TYPES = ["UNIT_TEST", "MICRO_PROJECT", "END_SEM", "ASSIGNMENT"];
+
+// ---------- Bulk operations (teacher dashboard) ----------
+
+// Bulk add progress: one progress entry per selected student (same title/mark/remark).
+export const bulkAddProgressSchema = z
+  .object({
+    studentIds: z.array(z.string().min(1)).min(1),
+    type: z.enum(PROGRESS_TYPES),
+    title: z.string().trim().min(1).max(200),
+    marksObtained: z.number().min(0).optional().or(z.literal(null)),
+    maxMarks: z.number().min(0).optional().or(z.literal(null)),
+    remark: z.string().trim().max(500).optional().or(z.literal("")),
+  })
+  .strict();
+
+export const bulkAddMembersSchema = z
+  .object({
+    studentIds: z.array(z.string().min(1)).min(1),
+    groupIds: z.array(z.string().min(1)).min(1),
+  })
+  .strict();
+
+// Narrow student-profile write, batch-safe: only enroll/options a teacher may set.
+export const bulkStudentProfileSchema = z
+  .object({
+    studentIds: z.array(z.string().min(1)).min(1),
+    rollNumber: z.string().trim().min(1).max(30).optional(),
+    yearOfAdmission: z.coerce.number().int().min(1990).max(2100).optional(),
+    phone: z.string().trim().max(20).optional().or(z.literal("")),
+  })
+  .strict();
+
+// ---------- Progress ----------
+
+export const createProgressSchema = z
+  .object({
+    studentId: z.string().min(1),
+    type: z.enum(PROGRESS_TYPES),
+    title: z.string().trim().min(1).max(200),
+    marksObtained: z.number().min(0).optional().or(z.literal(null)),
+    maxMarks: z.number().min(0).optional().or(z.literal(null)),
+    remark: z.string().trim().max(500).optional().or(z.literal("")),
+  })
+  .strict();
+
+// ---------- Notices ----------
+
 export const updateOwnContactSchema = z
   .object({
     phone: z.string().trim().max(20).optional().or(z.literal("")),
@@ -58,21 +109,7 @@ export const updateStudentByTeacherSchema = z
   })
   .strict();
 
-// ---------- Progress ----------
 
-// Matches the ProgressType enum in prisma/schema.prisma.
-export const PROGRESS_TYPES = ["UNIT_TEST", "MICRO_PROJECT", "END_SEM", "ASSIGNMENT"];
-
-export const createProgressSchema = z
-  .object({
-    studentId: z.string().min(1),
-    type: z.enum(PROGRESS_TYPES),
-    title: z.string().trim().min(1).max(200),
-    marksObtained: z.number().min(0).optional().or(z.literal(null)),
-    maxMarks: z.number().min(0).optional().or(z.literal(null)),
-    remark: z.string().trim().max(500).optional().or(z.literal("")),
-  })
-  .strict();
 
 // ---------- Groups (teacher write-scope) ----------
 

@@ -10,6 +10,7 @@ import { progressRouter } from "./routes/progressRoutes.js";
 import { studentRouter } from "./routes/studentRoutes.js";
 import { noticeRouter } from "./routes/noticeRoutes.js";
 import { groupRouter } from "./routes/groupRoutes.js";
+import { bulkRouter } from "./routes/bulkRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import { apiLimiter, authLimiter } from "./middleware/rateLimit.js";
 
@@ -79,6 +80,7 @@ export function createApp() {
   app.use("/api/students", studentRouter);
   app.use("/api/notices", noticeRouter);
   app.use("/api/groups", groupRouter);
+  app.use("/api/bulk", bulkRouter);
 
   // Error handling — must be registered LAST.
   app.use(notFound);

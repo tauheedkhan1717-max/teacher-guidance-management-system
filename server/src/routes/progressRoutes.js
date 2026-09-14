@@ -7,8 +7,9 @@ import { prisma } from "../lib/prisma.js";
 import { authenticate, authorize } from "../middleware/auth.js";
 import { requireGroupAccess } from "../middleware/groupAccess.js";
 import { validate } from "../middleware/validate.js";
-import { createProgressSchema } from "../schemas/index.js";
+import { createProgressSchema, bulkAddProgressSchema } from "../schemas/index.js";
 import { addProgress, getMyProgress, getStudentProgress } from "../controllers/progressController.js";
+import { bulkAddProgress } from "../controllers/bulkController.js";
 
 const router = Router();
 
@@ -42,6 +43,15 @@ router.post(
   validate(createProgressSchema),
   requireGroupAccess,
   addProgress
+);
+
+// Bulk add progress — one entry per selected student, same title/mark/remark.
+// ADMIN bypasses the membership gate; teachers only write for in-group students.
+router.post(
+  "/bulk",
+  authorize("TEACHER", "ADMIN"),
+  validate(bulkAddProgressSchema),
+  bulkAddProgress
 );
 
 // /me must be declared before /:studentId so it isn't swallowed as a param.
