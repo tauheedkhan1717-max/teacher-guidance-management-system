@@ -9,126 +9,135 @@ _This file is the running state record of the project. Update it at the end of e
 | | |
 |---|---|
 | **Name** | Teacher Guidance Management System (TGMS) |
-| **One-line purpose** | Web platform where teachers (admins) record student academic progress and students get real-time read-only visibility into their own records. |
+| **One-line purpose** | Web platform where teachers record student academic progress, admins onboard teachers via single-use invites, and students get real-time read-only visibility into their own records. |
 | **Problem solved** | Student progress lives in paper registers, spreadsheets and teachers' heads — no consolidated view, students learn results weeks late, records get lost/altered, teachers burn time on admin. |
-| **Users** | Schools / colleges. Two roles only: **TEACHER** (admin, write) and **STUDENT** (read-only own record). |
-| **Deadline** | ~2026-09-23 (college project seminar). Today: 2026-09-09. |
+| **Users** | Schools / colleges. Three roles: **ADMIN** (seeded, issues teacher invites), **TEACHER** (write progress + notices), **STUDENT** (read-only own record + notices). |
+| **Deadline** | ~2026-09-23 (college project seminar). Last full-session update: 2026-09-14. |
 
-**Repo / paths (2026-09-09):** project root is `/home/tauheedkhan/Desktop/teacher-guidance-management-system` (renamed from `teacher-guidance-system` to match the GitHub repo). GitHub: username `tauheedkhan1717-max` · repo `/teacher-guidance-management-system` · remote HTTPS · branch `master`, tracks `origin/master`. Local `master` at commit `b72970a` = whatever was pushed.
+**Repo / paths:** project root `/home/tauheedkhan/Desktop/teacher-guidance-management-system` · GitHub `tauheedkhan1717-max/teacher-guidance-management-system` · remote HTTPS · branch `master`, tracks `origin/master`.
 
 ## 2. Locked stack (chosen by user — do not change without asking)
 
-Plain JavaScript (ES modules, **NOT** TypeScript) · Node.js 22 + Express 5 · React 19 + Vite + Tailwind CSS + React Router · PostgreSQL 16 (Docker local / Render prod) · Prisma ORM · JWT in httpOnly cookie + bcrypt · Zod validation · helmet / cors / express-rate-limit · Recharts (trend chart) · pdfmake server-side (PDF — NEVER Puppeteer) · Vitest + Supertest (small test set only) · Render (API + DB) + Vercel (frontend) · Git + GitHub.
+Plain JavaScript (ES modules, **NOT** TypeScript) · Node.js v22.23.2 + Express 5.2.1 · React 19.3 + Vite 5.4 + Tailwind CSS 3.4 + React Router 6.30 · PostgreSQL 16 (Docker local / Render prod) · Prisma ORM **pinned 5.22.0** (v7's generator broke once — verify `npx prisma --version` before any upgrade) · JWT in httpOnly cookie + bcryptjs · Zod **v4** (error access via `err.issues`; `.strict()` everywhere) · helmet / cors / express-rate-limit · Recharts (installed, unused until analytics returns) · pdfmake (installed, unused until reports return) · Vitest + Supertest planned, **never written** · Render (API + DB) + Vercel (frontend) · Git + GitHub.
 
 ## 3. Final architecture
 
-Three-tier, frontend/backend split (so a future mobile app can reuse the same API).
+Three-tier, frontend/backend split (a future mobile app can reuse the same API; `Authorization: Bearer` already supported alongside the cookie).
 
 ```
-BROWSER (React SPA, Vercel)
+BROWSER (React SPA, Vercel / vite :5173 dev)
    │ HTTPS + JSON, httpOnly cookie carrying JWT
    ▼
-EXPRESS API (Render) ── only trusted component
-   helmet → cors → cookieParser → authenticate → requireRole
-         → requireSubjectAccess → validate(Zod) → controller
-   │ Prisma (parameterised queries only)
+EXPRESS API (Render / :4000 dev) ── only trusted component
+   helmet → cors(credentials) → cookieParser → json/urlencoded(1mb) → morgan
+   → apiLimiter(/api) + authLimiter(/api/auth) → authenticate → authorize(...roles)
+   → identity-scope gates → validate(Zod) → controller → Prisma $transaction(+AuditLog)
+   │ Parameterised queries only
    ▼
-POSTGRESQL (Docker local / Render prod)
+POSTGRESQL 16 (Docker `tgms-db` :5432 local / Render prod)
 ```
 
 ### Auth / authorisation flow (the core of the project)
-login → JWT signed by server → httpOnly cookie → `authenticate` verifies signature, attaches `{userId, role}`; no token = **401**. `requireRole('TEACHER')` = **403** for students. `requireSubjectAccess` checks TeacherSubject join table = **403** if teacher not assigned that subject. Then Zod. Then Prisma transaction writing ProgressEntry + AuditLog atomically. Returns **201**.
+login → JWT signed by server → httpOnly cookie (7-day, `sameSite` lax dev / none prod, optional `COOKIE_DOMAIN`) → `authenticate` verifies signature (cookie OR Bearer) → attaches `{userId, role, name}`; no/invalid token = **401**. `authorize(...roles)` closure = **403** on mismatch. Identity-scope gates (student may only read own progress; teacher may only delete own notices) read the JWT, never client input, and are separate middleware/controller logic. Then Zod `.strict()` (forged `role`/unknown keys → 400). Then Prisma interactive `$transaction` writing the domain row + AuditLog **via the tx client `tx`** — never the global `prisma` inside a transaction (historical P2003 bug). Security is **server-side only** — hiding UI is never security; every request re-checked in middleware. ← headline claim + best interview talking point.
 
-### Permission model (LOCKED)
-- Write scope: "Only assigned subjects" — every teacher can VIEW every student; a teacher can only WRITE progress for subjects assigned to them via `TeacherSubject`.
-- Security is **server-side only**. Hiding UI buttons is not security; every request re-checked in middleware. ← headline claim + best interview talking point.
+### Permission model (CURRENT, as of 2026-09-14)
+- **Three roles** — `ADMIN | TEACHER | STUDENT` (Prisma enum; `User.role` defaults to STUDENT).
+- Public registration mints **STUDENT exclusively** (role hard-coded in controller). **TEACHER accounts are invite-only**: ADMIN generates single-use 7-day `TeacherInvite` codes; teacher redeems at `/teacher-register`. ADMIN exists only via seed.
+- Teachers may VIEW every student and WRITE progress for any of them; subject-scoping was pruned and will be rebased on `Group`/`GroupMember` (already modeled, no API).
+- Notice board: read = any authenticated role; post = TEACHER/ADMIN; soft-delete = author or ADMIN (server-enforced).
 
-## 4. Database schema (IMPLEMENTED — 9 models)
+## 4. Database schema (IMPLEMENTED — `server/prisma/schema.prisma`, one migration `20260914113323_init_core_schema`)
 
-> Migrations live in `server/prisma/migrations/` (`init` applied; `add_guidance_requests` applied when `npx prisma migrate dev --name add_guidance_requests` succeeds). Commands: `prisma migrate dev` (local), `prisma migrate deploy` (prod).
+Every model: `uuid()` PK, `createdAt`/`updatedAt`, `isDeleted` soft-delete flag (nothing physically erased).
 
-| Model | Key fields |
+| Model | Key fields / notes |
 |---|---|
-| `User` | email, passwordHash, role (TEACHER\|STUDENT), name |
-| `StudentProfile` | userId, rollNumber (unique), classId, batch, yearOfAdmission, phone, address |
-| `TeacherProfile` | userId, employeeId, department |
-| `Class` | name ("BCA 3rd Year"), section ("A") |
-| `Subject` | name, code, classId |
-| `TeacherSubject` | teacherId, subjectId (drives write permission) |
-| `ProgressEntry` | studentId, subjectId, teacherId, type (PROJECT\|ASSIGNMENT\|NOTE\|EXAM), title, status, marksObtained, maxMarks, remark, recordedAt, createdAt, updatedAt |
-| `AuditLog` | actorId, action, entityType, entityId, before, after, createdAt |
-| `GuidanceRequest` | studentId, subjectId, teacherId?, topic, details, status (PENDING\|SCHEDULED\|COMPLETED), teacherReply, respondedAt, createdAt, updatedAt |
+| `User` | email (unique), passwordHash, name, role enum. No role-specific data (auth/domain split). |
+| `StudentProfile` | userId (unique), rollNumber (unique), yearOfAdmission, phone?. No class/batch/address (pruned). |
+| `TeacherProfile` | userId (unique), employeeId (unique), department. |
+| `ProgressEntry` | studentId, type (`UNIT_TEST\|MICRO_PROJECT\|END_SEM\|ASSIGNMENT`), title, marksObtained?, maxMarks?, remark?, recordedAt. **No subjectId/teacherId** (pruned; group-scoping next phase). |
+| `TeacherInvite` | code (unique), department, createdById, usedById (unique), isUsed, expiresAt. Single-use, expiring; unused past expiry displays "Expired". |
+| `Group` / `GroupMember` | teacher-owned student groupings. **Schema-ready, zero API** (next phase's scoping primitive). |
+| `Notice` | title, content, authorId→User. **LIVE since 2026-09-14** (see §5, Phase 14). |
+| `LeaveRequest` | studentId, reason, startDate, endDate, status enum `PENDING\|APPROVED\|REJECTED`. **Schema-ready, zero API.** |
+| `Attendance` | studentId, date, isPresent, `@@unique([studentId, date])`. **Schema-ready, zero API.** |
+| `AuditLog` | actorId→User, action, entityType, entityId, **`beforeData`/`afterData` TEXT columns holding JSON.stringify'd snapshots** (NOT Json columns, NOT named before/after). |
 
-**Design decision to defend in viva:** single `ProgressEntry` table with a `type` discriminator instead of 4 tables. Cost: some nullable columns. Benefit: whole student history = one query, one unified timeline. Pattern: single-table design with discriminator column.
+**Design decision to defend in viva:** single `ProgressEntry` table with a `type` discriminator (one unified timeline per student); the auth-root `User` vs role-profile split (auth data never mixes with domain data); soft deletes reconcile "records can't be tampered with"; tx+AuditLog atomicity means a mutation can never exist without its audit row.
 
 ## 5. Phase roadmap & status
 
 | # | Phase | Status |
 |---|---|---|
-| 1 | Folder skeleton, .gitignore, git init, GitHub repo, first commit, docs/PROJECT_STATE.md | ✅ COMPLETE — commit `b72970a` pushed to GitHub (2026-09-09) |
-| 2 | Docker Postgres, Prisma schema, first migration, seed data | ✅ COMPLETE — migration `init` applied + seed run (2026-09-09) |
-| 3 | Express server, env config, error handler, /api/health | ✅ COMPLETE (user-verified) |
-| 4 | Auth + permission model (bcrypt, JWT cookies, role + subject middleware) | ✅ COMPLETE (user-verified) |
-| 5 | Core API: students, classes, subjects, progress, audit, analytics | ✅ COMPLETE (user-verified) |
-| 6 | API verification + optional small permission tests + early backend deploy dry run | ✅ COMPLETE (user-verified — Swagger `/api/docs`, Postman collection, env validation, prod checklist) |
-| 7 | Vite + React + Tailwind + Router + auth context + login/register | 🟡 BUILT — client scaffold + AuthContext + login/register + backend register/classes; browser verify pending |
-| 8 | Student dashboard + trend chart | 🟡 BUILT — read-only dashboard + Guidance-Requests EXTENSION (schema, endpoints, UI); migration + browser verify pending |
-| 9 | Teacher dashboard: list, search/filter, student detail, progress forms | 🟡 BUILT — progress edit/soft-delete endpoints + StudentsPage + StudentDetailPage (add/edit/delete modals + guidance respond) + ProgressPage + AnalyticsPage; migration + browser verify pending |
-| 10 | PDF report card + polish (loading/empty/error, responsive, 404) | 🟡 BUILT — pdfmake report endpoint (`GET /api/reports/:id/pdf` + `/me/pdf`, A4 report card w/ subject table + remarks) + Download buttons + `lib/download.js`; needs `npm i pdfmake` + verify |
-| 11 | Hardening: rate limit, validation sweep, secret check, headers | 🟡 IN PROGRESS — express-rate-limit (global + auth) + Zod schemas + validate() wired on auth/progress/requests/students + helmet CSP configured + A2 student-contact endpoint added |
-| 12 | Final deploy: Vercel frontend, env vars, prod migrations | ⬜ |
-| 13 | README + architecture diagram + ERD + screenshots + demo accounts + demo recording + resume bullets | ⬜ |
+| 1 | Skeleton, .gitignore, git init, GitHub, docs | ✅ commit `b72970a` |
+| 2–6 | Docker Postgres, Prisma, Express, auth+RBAC, core API, hardening, Swagger | ✅ (superseded by the "MVP prune": subjects/classes/requests/reports/analytics stripped) |
+| 7–11 | React client, dashboards, invite system, defensive-UI pass | ✅ built across several sessions; **landed in git 2026-09-14** (commit `e8c9b42`) — everything had been untracked |
+| 12 | Deep clean + stabilisation session (2026-09-14) | ✅ build-verified client (372 kB), deleted 8 dead files (commit `5fa2a19`), removed monolith-era root relics (empty `server.js`, mongoose root `package.json`, empty `controllers/models/routes/public/` dirs), documented §7 debt |
+| 13 | **Notice Board** (first Pro-Max feature) | ✅ 2026-09-14, commit `141566c` — full vertical slice, live-verified end-to-end |
+| 14 | PDF report card (pdfmake), student phone self-edit | ⬜ reclaim pdfmake integration from git history of old repo |
+| 15 | Group-based teacher scoping (`Group`/`GroupMember`) | ⬜ replaces pruned subject scoping |
+| 16 | Analytics rebuild (Recharts, real entries, attendance %) | ⬜ |
+| 17 | Final deploy: Render + Vercel, env vars, `prisma migrate deploy` | ⬜ |
+| 18 | README + architecture diagram + ERD + screenshots + demo accounts + demo recording + resume bullets | ⬜ |
 
-Pacing: Phases 1–6 week 1, 7–10 week 2, 11–13 week 3.
+## 6. API surface (live, verified 2026-09-14)
 
-## 6. Decisions & constraints
+| Route | Middleware chain | Notes |
+|---|---|---|
+| `GET /api/health` | apiLimiter | `{status, service, database, uptimeSeconds, timestamp}`; 503 if DB down. **NB: health is at `/api/health`, not `/api`.** |
+| `POST /api/auth/login` | authLimiter · validate(loginSchema) | Identical 401 for unknown-user vs wrong-password (anti-enumeration); sets cookie |
+| `GET /api/auth/me` | authenticate | Re-reads live User row |
+| `POST /api/auth/logout` | — | Clears cookie |
+| `POST /api/auth/register` | validate(registerSchema) | Student self-signup; role hard-coded STUDENT; User+StudentProfile+AuditLog in one tx; auto-login |
+| `POST /api/auth/register-teacher` | validate(registerTeacherSchema) | Invite-only; duplicate email 409; no auto-login |
+| `POST /api/admin/invites` | authenticate · authorize(ADMIN) | Random 8-char code, 7-day expiry |
+| `GET /api/admin/invites` | authenticate · authorize(ADMIN) | `createdBy`/`usedBy` are **objects** (frontend unwraps `.name`); returns bare array |
+| `POST /api/progress` | auth · authorize(TEACHER) · validate | FK-checks student (400); entry+AuditLog tx → 201 |
+| `GET /api/progress/me` | auth · authorize(STUDENT) | Declared before `/:studentId` (param-swallowing hazard) |
+| `GET /api/progress/:studentId` | auth · authorize(TEACHER,STUDENT) · own-id gate | Student + not-own-id → 403 |
+| `GET /api/students` | auth · authorize(TEACHER,ADMIN) | `{students:[...]}`, rollNumber order |
+| `GET /api/notices` | authenticate | Any role; `{notices:[...]}` newest-first, author included |
+| `POST /api/notices` | auth · authorize(TEACHER,ADMIN) · validate | title 3–150, content 1–5000, `.strict()`; notice+AuditLog(CREATED) tx → 201 |
+| `DELETE /api/notices/:id` | auth · authorize(TEACHER,ADMIN) | Soft delete; author-or-ADMIN enforced in controller (403 otherwise); 404 if missing/already deleted; AuditLog(SOFT_DELETED) with beforeData |
+| `GET /api/docs` | dev only | ⚠️ **Stale** — documents the pre-prune API |
 
-- Stack locked (§2) — over Django and PHP/MySQL alternatives by explicit choice.
-- Plain JavaScript, not TypeScript.
-- Teacher write scope = assigned subjects only (`TeacherSubject`).
-- v1 scope: MUST-haves + trend chart (Recharts) + PDF report card (pdfmake). OUT of v1: attendance, notifications, bulk CSV/Excel upload, badges, leaderboard, parent portal, AI prediction, mobile app, TypeScript migration, full test suite.
-- Postgres in Docker locally, never native (3.3 GiB RAM; Docker ≈120 MB only while running).
-- pdfmake, never Puppeteer (Chromium ≈300 MB fatal on this RAM + free-tier deploy).
-- Writes = Prisma transaction: ProgressEntry + AuditLog atomically (an entry can never exist without its audit row).
-- Deletes are soft deletes (reconciles "free from tampering").
-- `.gitignore` written before first commit (a committed secret lives in history forever).
-- Package versions pinned from the generated lockfile (never guessed — sandbox blocks npm registry).
-- **Prisma pinned to 5.22.0** (user-directed, 2026-09-09) — v7's new generator broke with `provider = "prisma-client-js"`; clean reinstall of `prisma@5.22.0` + `@prisma/client@5.22.0` fixed it. Verify with `npx prisma --version` before any future upgrade.
-- Roles are exactly **TEACHER** and **STUDENT** (Prisma enum) — there is NO ADMIN role. `authorize(...roles)` is generic (takes any role list per route); routes that need teacher-only pass `authorize("TEACHER")`. (User's Phase-4 wording mentioned "ADMIN" — flagged, not added, to keep the locked 2-role model.)
-- **Guidance Requests — v1 EXTENSION (user-approved 2026-09-10):** documented, deliberate expansion. Students may CREATE guidance requests (`POST /api/requests`, status PENDING) — the single narrow exception to "students never write." Teachers respond only for subjects they are assigned to (`PATCH /api/requests/:id/respond`, same write-scope as progress). Academic progress entries remain strictly teacher-write.
-- **Progress edit/soft-delete (Phase 9, 2026-09-10):** `PATCH /api/progress/:id` + `DELETE /api/progress/:id` (soft). Subject-scope resolved via async `requireSubjectAccess` resolver — on PATCH, teacher must be assigned to the new subject if changed, else to the entry's current subject; DELETE checks the entry's subject. Both write before/after to AuditLog atomically.
-- **Phase 9 JSX integrity fix (2026-09-10):** a stray duplicate closing block at the tail of `StudentDetailPage.jsx` (leftover `</div>` / `);` / `}`) was removed — it would have failed the Vite build. All Phase 7–9 page files re-verified to terminate cleanly (`App.jsx`, `StudentsPage`, `StudentDetailPage`, `ProgressPage`, `AnalyticsPage`).
-- **RegisterPage dropdown fix (2026-09):** `GET /api/classes` returns `{ classes: [...] }`; the fetch now reads `res.data?.classes ?? res.data?.data?.classes ?? res.data` and always sets an array (`setClasses(Array.isArray(...) ? ... : [])`) — fixed the `classes.map is not a function` crash.
-- **Phase 11 security hardening (2026-09):** `express-rate-limit` — global `/api` (300/15min) + tighter `/api/auth` (15/15min, brute-force guard). Zod schemas in `src/schemas/index.js` (all `.strict()`) + `validate()` middleware wired onto auth/progress/requests/students — forged `role` or academic-field writes now rejected with 400. Helmet configured (relaxed CSP for Swagger in dev only).
+## 7. Known technical debt (fix-first list, priority order)
 
-## 7. Dummy / demo data (mandated by user)
+1. **Response envelope inconsistency**: mixed `{user}` `{entries}` `{students}` `{notices}` `{notice}` + bare array from `listInvites`. Standardize (e.g. always `{data}`); AdminDashboard survives only via its `?? res.data` fallback.
+2. **Stale docs**: `server/src/docs/swagger.yaml` + `server/docs/TGMS_API_Collection.json` document subjects/requests/reports. Regenerate (see §6 for the real surface).
+3. **app.js quirk**: `adminRouter` mounted inside the rate-limiter block (works — limiter order correct — but confusing). Move it down with the other routers.
+4. **Unused deps**: client `@reduxjs/toolkit`, `immer` (zero usage), `recharts` (until Phase 16); server `pdfmake` (until Phase 14).
+5. **No tests, no CI.** API surface is small and stable — ideal Vitest+Supertest starting point; test the invite lifecycle and the notice ownership gate first.
+6. **Reusable UI**: three dashboards + NoticeBoard hand-roll cards/badges/spinners — extract `SummaryCard`, `Badge`, `Modal`, `Table` into `components/ui/`.
+7. **Dead code**: `server/src/lib/audit.js` writes removed `before`/`after` columns; nothing imports it — delete.
+8. **Cosmetics**: odd indentation at `App.jsx` around the public routes block; `LoginPage` `try {` indent.
 
-**Teachers:** Ashwini ma'am, Tejas ma'am, Mansi ma'am.
-**Students (read-only):** Tauheed, Atif, Jawwad, Siddiq.
+## 8. Dummy / demo data
 
-## 8. Open questions / assumptions
+- **Seed (server/prisma/seed.js, idempotent upsert):** `admin@tgms.edu` / `Admin@Root123` ("System Administrator") + demo invite code `POLY-ADMIN-CREATES-INVITE` (Computer Engineering, 7-day expiry from seed time).
+- **Live demo state (2026-09-14):** one posted notice "Welcome to the TGMS notice board" (author: System Administrator) exists as a demo fixture; smoke-test notices were created and soft-deleted during verification (their audit rows remain by design).
 
-- [x] **A1 — Teacher accounts (CONFIRMED by user 2026-09-09):** teacher accounts are created by Admin (the seeded/first teacher) or by the seed script only. Public signup can **never** mint a TEACHER.
-- [x] **A2 — Student contact edits (CONFIRMED by user 2026-09):** students may edit ONLY their own `phone` and `address` (`PATCH /api/students/me`). Academic fields (rollNumber, classId, batch, yearOfAdmission) are locked — rejected by an `.strict()` Zod schema (400) before any handler runs; teachers can still edit them via `PATCH /api/students/:id`.
-- [x] **A3 — Edits & deletes (CONFIRMED by user 2026-09-09):** teacher edits allowed; every edit writes before/after to the AuditLog; deletions are **soft** (hidden, never physically erased).
-- [x] **A4 — GitHub account (RESOLVED 2026-09-09):** username `tauheedkhan1717-max`; repo `https://github.com/tauheedkhan1717-max/teacher-guidance-management-system`; commit `b72970a` pushed to `master`.
+## 9. Operational reference
 
-## 9. Verified machine state (2026-09-02)
+- **Ports**: API :4000 (user's nodemon usually running — check before starting another) · client :5173 (user's vite usually running) · Postgres :5432 (Docker `tgms-db`).
+- **Env**: server `.env` per `server/.env.example` (`DATABASE_URL`, `JWT_SECRET` ≥32 chars in prod, `PORT=4000`, `NODE_ENV`, `CLIENT_ORIGIN`, optional `COOKIE_DOMAIN` — leave unset); client `VITE_API_URL` optional.
+- **Commands**: `npm run dev` both sides · `npx prisma migrate dev` local / `migrate deploy` prod · `npm run seed` · `npx vite build` in `client/` (verified green 2026-09-14).
+- **Deploy configs**: `server/render.yaml` + `client/vercel.json`.
+- **Machine**: Pop!_OS 24.04, 3.3 GiB RAM (Docker over native; pdfmake over Puppeteer), Node v22.23.2, npm 10.9.8.
 
-Pop!_OS 24.04 LTS · Linux 6.18.46-x64v1-xanmod1 · 3.3 GiB RAM (often <1 GiB free) + 5.6 GiB swap · 225 G disk 74% used · Node v22.23.2 · npm 10.9.8 · npx 10.9.8 · Python 3.12.3 · pip 24.0 · Git 2.43.0 · Docker 29.1.3 · MariaDB client 10.11.14 · VS Code 1.135.0 · VSCodium 1.126.04524 · `pdftotext` present.
-NOT installed: psql, sqlite3, python-pptx, pypdf, pymupdf, pdfplumber.
-`~/.ssh/` exists but is empty (no SSH keys) → GitHub push via HTTPS / `gh` CLI, not SSH.
+## 10. Historical bug patterns to never repeat
 
-## 10. Sandbox limitations (for future assistants)
+(a) global `prisma` used inside `$transaction` → P2003 on `AuditLog_actorId_fkey` — always use `tx`; (b) old `auditLog` helper with `before`/`after` on the new schema → column mismatch — current columns are `beforeData`/`afterData` and hold stringified JSON; (c) Prisma `Date` objects hitting string methods → guarded formatters (`fmtDate`); (d) rendering API objects as React children → white screen — unwrap with `?.` + fallback, `Array.isArray` before `.map`; (e) `<select>` string vs number → `z.coerce` on intake; (f) `</ProtectedRoute />` self-closing **closing** tag — esbuild "Expected `>` but found `/`" (caught 2026-09-14).
 
-- Assistant sandbox cannot reach registry.npmjs.org (HTTP 403). Never pin guessed package versions — install current versions and read them back from the lockfile.
-- PDF text: `pdftotext -layout f.pdf -`. Image-PDFs need visual Read.
-- PPTX: unzip + stdlib `xml.etree.ElementTree`, iterate `ppt/slides/slideN.xml` for `a:t` text nodes.
+## 11. Sandbox limitations (for future assistants)
 
-## 11. Other outstanding work (outside the build)
+- Registry/terminal access is intermittent; verify file state by reading, and have the user run installs/builds when terminals fail (2026-09-14: builds/terminals worked).
+- Background processes spawned from a terminal command get reaped when it exits — a `nohup vite &` dies with the command; attach to the user's own dev servers instead.
+- PDF text: `pdftotext -layout f.pdf -`. PPTX: unzip + `xml.etree.ElementTree`, iterate `ppt/slides/slideN.xml` for `a:t`.
 
-- **Deck (a):** 6-slide project deck — "Dark Mode Tech" aesthetic, exactly 6 slides, NO title slide, NO thank-you slide, sequential topic breakdown, concise bullets, one `[Image Suggestion: ...]` per slide, delivered AS A PDF. (NOT delivered anywhere in home folder — outstanding.)
-- **Deck (b) — partially done:** `/home/tauheedkhan/Desktop/TGMS UI & Working Flow (2).pptx` — 15 slides exist and cover the journey (login → teacher dashboard → student read-only → data entry → analytics → PDF → audit log → mobile → request flow), uses mandated dummy names; but all 15 speaker-note slots are **EMPTY** — the required "How to Explain (Hinglish Speaker Notes)" are missing.
-- `/home/tauheedkhan/Desktop/ppt-3-final/TGMS_Software_UI_Mockups.pptx` (6 slides, college-template style) exists — an overview deck, NOT the dark-mode PDF format requested for deck (a).
-- LibreOffice lock files present in `ppt-3-final/` — close LibreOffice before writing to those files.
-- Abstract PDF located: `/home/tauheedkhan/Desktop/TGMS-ABSTRACT/Teacher_Guidance_Management_System_Abstract-1.pdf` (179,642 bytes). All needed abstract content is preserved in the Phase-1 handoff.
+## 12. Outstanding non-code work
+
+- **Deck (a):** 6-slide "Dark Mode Tech" PDF deck (no title/thank-you slides, one `[Image Suggestion]` per slide) — NOT delivered.
+- **Deck (b):** `~/Desktop/TGMS UI & Working Flow (2).pptx` — 15 slides exist, all speaker-note slots EMPTY ("How to Explain (Hinglish Speaker Notes)" missing).
+- `~/Desktop/ppt-3-final/TGMS_Software_UI_Mockups.pptx` — overview deck, not the requested format; LibreOffice lock files present — close LibreOffice before editing.
+- Abstract PDF: `~/Desktop/TGMS-ABSTRACT/Teacher_Guidance_Management_System_Abstract-1.pdf`.
