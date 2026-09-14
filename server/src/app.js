@@ -8,6 +8,7 @@ import { healthRouter } from "./routes/health.js";
 import { authRouter } from "./routes/auth.js";
 import { progressRouter } from "./routes/progressRoutes.js";
 import { studentRouter } from "./routes/studentRoutes.js";
+import { noticeRouter } from "./routes/noticeRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import { apiLimiter, authLimiter } from "./middleware/rateLimit.js";
 
@@ -75,6 +76,7 @@ export function createApp() {
   app.use("/api/auth", authRouter);
   app.use("/api/progress", progressRouter);
   app.use("/api/students", studentRouter);
+  app.use("/api/notices", noticeRouter);
 
   // Error handling — must be registered LAST.
   app.use(notFound);

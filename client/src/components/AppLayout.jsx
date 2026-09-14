@@ -1,5 +1,5 @@
 // Shared shell for every protected page: top nav (collapsible on mobile) + content area.
-// MVP navigation — dead routes (/students, /analytics) pruned; Dashboard + Logout only.
+// Navigation: Dashboard + Notices (any role) + Logout.
 import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { GraduationCap, LogOut, Menu, X } from "lucide-react";
@@ -23,6 +23,13 @@ export default function AppLayout({ children }) {
   }
 
   const isTeacher = user?.role === "TEACHER";
+  const isAdmin = user?.role === "ADMIN";
+
+  const badgeClass = isAdmin
+    ? "bg-amber-100 text-amber-700"
+    : isTeacher
+      ? "bg-indigo-100 text-indigo-700"
+      : "bg-emerald-100 text-emerald-700";
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -39,6 +46,9 @@ export default function AppLayout({ children }) {
             <NavLink to="/dashboard" className={navLinkClass}>
               Dashboard
             </NavLink>
+            <NavLink to="/notices" className={navLinkClass}>
+              Notices
+            </NavLink>
           </nav>
 
           <div className="hidden items-center gap-3 md:flex">
@@ -46,7 +56,7 @@ export default function AppLayout({ children }) {
             <span
               className={cn(
                 "rounded-full px-2 py-0.5 text-xs font-semibold",
-                isTeacher ? "bg-indigo-100 text-indigo-700" : "bg-emerald-100 text-emerald-700"
+                badgeClass
               )}
             >
               {user?.role}
@@ -75,6 +85,9 @@ export default function AppLayout({ children }) {
           <nav className="flex flex-col gap-1 px-4 py-2 md:hidden">
             <NavLink to="/dashboard" className={navLinkClass}>
               Dashboard
+            </NavLink>
+            <NavLink to="/notices" className={navLinkClass}>
+              Notices
             </NavLink>
             <button
               onClick={handleLogout}

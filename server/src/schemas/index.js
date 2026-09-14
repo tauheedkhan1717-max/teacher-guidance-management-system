@@ -74,6 +74,16 @@ export const createProgressSchema = z
   })
   .strict();
 
+// ---------- Notices ----------
+
+// Notice board: any authenticated role may READ; only TEACHER/ADMIN may write (route gate).
+export const createNoticeSchema = z
+  .object({
+    title: z.string().trim().min(3).max(150),
+    content: z.string().trim().min(1).max(5000),
+  })
+  .strict();
+
 // ---------- Guidance requests ----------
 
 export const createRequestSchema = z
