@@ -1,0 +1,340 @@
+openapi: 3.0.3
+info:
+  title: TGMS API — Teacher Guidance Management System
+  version: 1.0.0
+  description: |
+    Backend for TGMS. Two roles: TEACHER (write) and STUDENT (read-only own record).
+
+    **Authentication**: `POST /api/auth/login` returns a JWT set by the server in an
+    `httpOnly` cookie named `token`. Browser JavaScript can never read it (XSS-safe).
+    All endpoints except `/api/auth/login` and `/api/health` require the cookie.
+    Unauthorized → 401 · Forbidden role → 403 · Subject not assigned → 403.
+servers:
+  - url: http://localhost:4000
+    description: Local development (npm run dev)
+tags:
+  - name: Health
+    description: Service + database health
+  - name: Auth
+    description: Login, session, logout
+  - name: Students
+    description: Student directory and profiles
+  - name: Progress
+    description: Academic progress entries
+  - name: Subjects
+    description: Subject lookup per role
+  - name: Analytics
+    description: Dashboard metrics
+security:
+  - cookieAuth: []
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: token
+      description: httpOnly JWT cookie set by POST /api/auth/login
+  schemas:
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [TEACHER, STUDENT] }
+    StudentSummary:
+      type: object
+      properties:
+        id: { type: string }
+        rollNumber: { type: string }
+        batch: { type: string }
+        yearOfAdmission: { type: integer }
+        user: { $ref: "#/components/schemas/User" }
+        class:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+            section: { type: string }
+    ProgressEntry:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [PROJECT, ASSIGNMENT, NOTE, EXAM] }
+        title: { type: string }
+        status: { type: string, enum: [PENDING, SUBMITTED, EVALUATED, COMPLETED] }
+        marksObtained: { type: number, nullable: true }
+        maxMarks: { type: number, nullable: true }
+        remark: { type: string, nullable: true }
+        recordedAt: { type: string, format: date-time }
+        subject:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+            code: { type: string }
+        teacher:
+          type: object
+          properties:
+            id: { type: string }
+            user: { $ref: "#/components/schemas/User" }
+    Subject:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        code: { type: string }
+        classId: { type: string }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message: { type: string }
+            code: { type: string }
+paths:
+  /api/health:
+    get:
+      tags: [Health]  
+      summary: Service + database health
+      security: []
+      responses:
+        "200":
+          description: Server up, database reachable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: tgms-api }
+                  database: { type: string, example: connected }
+                  uptimeSeconds: { type: integer }
+                  timestamp: { type: string, format: date-time }
+        "503":
+          description: Database unreachable
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in and receive an httpOnly session cookie
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: OK — sends Set-Cookie token=...; HttpOnly; SameSite=...; Secure(prod)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: "#/components/schemas/User" }
+        "400":
+          description: Missing email/password
+        "401":
+          description: Invalid email or password
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Current authenticated user
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: "#/components/schemas/User" }
+        "401":
+          description: Missing or invalid token
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Clear the session cookie
+      responses:
+        "200":
+          description: Logged out
+/api/students:
+    get:
+      tags: [Students]
+      summary: List students with filters (classId, batch, search by name/roll/class)
+      parameters:
+        - { name: classId, in: query, schema: { type: string }, description: Filter by class id }
+        - { name: batch, in: query, schema: { type: string }, description: Filter by batch e.g. 2026-2027 }
+        - { name: search, in: query, schema: { type: string }, description: Case-insensitive name/roll/class match }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  students:
+                    type: array
+                    items: { $ref: "#/components/schemas/StudentSummary" }
+        "401":
+          description: Authentication required
+    /api/students/{id}:
+    get:
+      tags: [Students]
+      summary: Detailed student profile (profile + subjects + progress history)
+      security:
+        - cookieAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, description: StudentProfile id }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  student:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      rollNumber: { type: string }
+                      batch: { type: string }
+                      yearOfAdmission: { type: integer }
+                      phone: { type: string, nullable: true }
+                      address: { type: string, nullable: true }
+                      user: { $ref: "#/components/schemas/User" }
+                      class: { type: object, properties: { id: { type: string }, name: { type: string }, section: { type: string } } }
+                      subjects:
+                        type: array
+                        items: { $ref: "#/components/schemas/Subject" }
+                      progressEntries:
+                        type: array
+                        items: { $ref: "#/components/schemas/ProgressEntry" }
+        "403":
+          description: Student cannot access another student's profile
+        "404":
+          description: Student not found
+    patch:
+      tags: [Students]
+      summary: Update student details (TEACHER only)
+      security:
+        - cookieAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rollNumber: { type: string }
+                batch: { type: string }
+                yearOfAdmission: { type: integer }
+                phone: { type: string }
+                address: { type: string }
+                classId: { type: string }
+      responses:
+        "200":
+          description: Updated (before/after written to AuditLog atomically)
+        "403":
+          description: Insufficient role (students cannot update)
+/api/progress:
+    post:
+      tags: [Progress]
+      summary: Create a progress entry (Project/Assignment/Note/Exam) — TEACHER, assigned subject
+      security:
+       - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [studentId, subjectId, type, title]
+              properties:
+                studentId: { type: string }
+                subjectId: { type: string }
+                type: { type: string, enum: [PROJECT, ASSIGNMENT, NOTE, EXAM] }
+                title: { type: string }
+                status: { type: string, enum: [PENDING, SUBMITTED, EVALUATED, COMPLETED] }
+                marksObtained: { type: number }
+                maxMarks: { type: number }
+                remark: { type: string }
+                recordedAt: { type: string, format: date-time }
+      responses:
+        "201":
+          description: Created — ProgressEntry + AuditLog written atomically in one transaction
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entry: { $ref: "#/components/schemas/ProgressEntry" }
+        "403":
+          description: Not assigned to this subject (requireSubjectAccess) or student trying to write
+    /api/progress/student/{studentId}:
+      get:
+        tags: [Progress]
+      summary: Full progress timeline for a student
+      security:
+       - cookieAuth: []
+      parameters:
+        - { name: studentId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items: { $ref: "#/components/schemas/ProgressEntry" }
+    /api/subjects/mine:
+      get:
+        tags: [Subjects]
+      summary: Subjects for the current user (teacher → assigned; student → class)
+      security:
+      - cookieAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subjects:
+                    type: array
+                    items: { $ref: "#/components/schemas/Subject" }
+    /api/analytics/dashboard:
+      get:
+        tags: [Analytics]
+      summary: Dashboard metrics (counts + entry distribution, role-aware)
+      security:
+      - cookieAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalStudents: { type: integer, description: TEACHER only }
+                  teacherSubjects: { type: integer, description: TEACHER only }
+                  entryDistribution: { type: object, additionalProperties: { type: integer } }
+                  pendingEntries: { type: integer, description: TEACHER only }
+        "401":
+          description: Authentication required

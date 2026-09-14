@@ -22,5 +22,8 @@ Thumbs.db
 .vscode/
 .idea/
 
+# ---- AI assistant / tool state ----
+.freebuff/
+
 # ---- Test coverage ----
 coverage/

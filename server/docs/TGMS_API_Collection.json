@@ -1,0 +1,109 @@
+{
+  "info": {
+    "_postman_id": "tgms-api-collection",
+    "name": "TGMS API",
+    "description": "Teacher Guidance Management System API. Auth = httpOnly cookie `token` set by login; Postman's cookie jar captures it automatically.\n\nQuick start:\n1. Run `npm run dev` in server/.\n2. Set variables (Environment → default): baseUrl http://localhost:4000.\n3. Run Login (teacher) first — the cookie is stored, then call /me and the protected routes.\n4. studentId & subjectId: fill from GET /api/students and GET /api/subjects/mine responses.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000" },
+    { "key": "teacherEmail", "value": "ashwini@tgms.edu" },
+    { "key": "studentEmail", "value": "tauheed@tgms.edu" },
+    { "key": "password", "value": "password123" },
+    { "key": "studentId", "value": "" },
+    { "key": "subjectId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/health", "host": ["{{baseUrl}}"], "path": ["api", "health"] }
+      }
+    },
+    {
+      "name": "Login (teacher)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{teacherEmail}}\",\n  \"password\": \"{{password}}\"\n}" },
+        "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+      }
+    },
+    {
+      "name": "Login (student)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{password}}\"\n}" },
+        "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+      }
+    },
+    {
+      "name": "Me",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] }
+      }
+    },
+    {
+      "name": "Logout",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/auth/logout", "host": ["{{baseUrl}}"], "path": ["api", "auth", "logout"] }
+      }
+    },
+    {
+      "name": "List students",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/students?search=", "host": ["{{baseUrl}}"], "path": ["api", "students"], "query": [{ "key": "search", "value": "" }] }
+      }
+    },
+    {
+      "name": "Get student (detail + history)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/students/{{studentId}}", "host": ["{{baseUrl}}"], "path": ["api", "students", "{{studentId}}"] }
+      }
+    },
+    {
+      "name": "Create progress entry (teacher)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"studentId\": \"{{studentId}}\",\n  \"subjectId\": \"{{subjectId}}\",\n  \"type\": \"EXAM\",\n  \"title\": \"Mid-Term Examination\",\n  \"marksObtained\": 42,\n  \"maxMarks\": 50,\n  \"remark\": \"Good improvement — keep revising pointers.\",\n  \"recordedAt\": \"2026-09-10T10:00:00Z\"\n}" },
+        "url": { "raw": "{{baseUrl}}/api/progress", "host": ["{{baseUrl}}"], "path": ["api", "progress"] }
+      }
+    },
+    {
+      "name": "Get student progress timeline",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/progress/student/{{studentId}}", "host": ["{{baseUrl}}"], "path": ["api", "progress", "student", "{{studentId}}"] }
+      }
+    },
+    {
+      "name": "My subjects",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/subjects/mine", "host": ["{{baseUrl}}"], "path": ["api", "subjects", "mine"] }
+      }
+    },
+    {
+      "name": "Analytics dashboard",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/analytics/dashboard", "host": ["{{baseUrl}}"], "path": ["api", "analytics", "dashboard"] }
+      }
+    }
+  ]
+}

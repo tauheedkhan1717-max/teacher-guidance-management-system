@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum ProgressType {
+  UNIT_TEST
+  MICRO_PROJECT
+  END_SEM
+  ASSIGNMENT
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id             String   @id @default(uuid())
+  email          String   @unique
+  passwordHash   String
+  name           String
+  role           Role     @default(STUDENT)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  isDeleted      Boolean  @default(false)
+
+  studentProfile StudentProfile?
+  teacherProfile TeacherProfile?
+  auditLogs      AuditLog[]       @relation("AuditActor")
+  authoredNotices Notice[]        @relation("NoticeAuthor")
+  
+  // Relations for the Invite System
+  createdInvites TeacherInvite[]  @relation("AdminInvites")
+  usedInvite     TeacherInvite?   @relation("TeacherClaimedInvite")
+}
+
+model StudentProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  rollNumber      String   @unique
+  yearOfAdmission Int
+  phone           String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  isDeleted       Boolean  @default(false)
+
+  progressEntries ProgressEntry[]
+  groupMembers    GroupMember[]
+  leaveRequests   LeaveRequest[]
+  attendance      Attendance[]
+}
+
+model TeacherProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  employeeId  String   @unique
+  department  String
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isDeleted   Boolean  @default(false)
+
+  groups      Group[]
+}
+
+model ProgressEntry {
+  id              String         @id @default(uuid())
+  studentId       String
+  student         StudentProfile @relation(fields: [studentId], references: [id])
+  type            ProgressType
+  title           String
+  marksObtained   Float?
+  maxMarks        Float?
+  remark          String?
+  
+  recordedAt      DateTime       @default(now())
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  isDeleted       Boolean        @default(false)
+}
+
+model Group {
+  id          String         @id @default(uuid())
+  name        String         
+  teacherId   String
+  teacher     TeacherProfile @relation(fields: [teacherId], references: [id])
+  
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  isDeleted   Boolean        @default(false)
+
+  members     GroupMember[]
+}
+
+model GroupMember {
+  id          String         @id @default(uuid())
+  groupId     String
+  group       Group          @relation(fields: [groupId], references: [id])
+  studentId   String
+  student     StudentProfile @relation(fields: [studentId], references: [id])
+  
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  isDeleted   Boolean        @default(false)
+
+  @@unique([groupId, studentId])
+}
+
+model Notice {
+  id          String   @id @default(uuid())
+  title       String
+  content     String
+  authorId    String
+  author      User     @relation("NoticeAuthor", fields: [authorId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isDeleted   Boolean  @default(false)
+}
+
+model LeaveRequest {
+  id          String         @id @default(uuid())
+  studentId   String
+  student     StudentProfile @relation(fields: [studentId], references: [id])
+  reason      String
+  startDate   DateTime
+  endDate     DateTime
+  status      LeaveStatus    @default(PENDING)
+  
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  isDeleted   Boolean        @default(false)
+}
+
+model Attendance {
+  id          String         @id @default(uuid())
+  studentId   String
+  student     StudentProfile @relation(fields: [studentId], references: [id])
+  date        DateTime
+  isPresent   Boolean
+  
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  isDeleted   Boolean        @default(false)
+
+  @@unique([studentId, date])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorId     String
+  actor       User     @relation("AuditActor", fields: [actorId], references: [id])
+  action      String
+  entityType  String
+  entityId    String
+  beforeData  String?  
+  afterData   String?  
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isDeleted   Boolean  @default(false)
+}
+
+// --- New Model: Teacher Invites ---
+model TeacherInvite {
+  id          String   @id @default(uuid())
+  code        String   @unique 
+  department  String   
+  
+  createdById String   
+  createdBy   User     @relation("AdminInvites", fields: [createdById], references: [id])
+  
+  usedById    String?  @unique
+  usedBy      User?    @relation("TeacherClaimedInvite", fields: [usedById], references: [id])
+  
+  isUsed      Boolean  @default(false)
+  expiresAt   DateTime
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isDeleted   Boolean  @default(false)
+}

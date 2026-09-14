@@ -14,6 +14,8 @@ _This file is the running state record of the project. Update it at the end of e
 | **Users** | Schools / colleges. Two roles only: **TEACHER** (admin, write) and **STUDENT** (read-only own record). |
 | **Deadline** | ~2026-09-23 (college project seminar). Today: 2026-09-09. |
 
+**Repo / paths (2026-09-09):** project root is `/home/tauheedkhan/Desktop/teacher-guidance-management-system` (renamed from `teacher-guidance-system` to match the GitHub repo). GitHub: username `tauheedkhan1717-max` · repo `/teacher-guidance-management-system` · remote HTTPS · branch `master`, tracks `origin/master`. Local `master` at commit `b72970a` = whatever was pushed.
+
 ## 2. Locked stack (chosen by user — do not change without asking)
 
 Plain JavaScript (ES modules, **NOT** TypeScript) · Node.js 22 + Express 5 · React 19 + Vite + Tailwind CSS + React Router · PostgreSQL 16 (Docker local / Render prod) · Prisma ORM · JWT in httpOnly cookie + bcrypt · Zod validation · helmet / cors / express-rate-limit · Recharts (trend chart) · pdfmake server-side (PDF — NEVER Puppeteer) · Vitest + Supertest (small test set only) · Render (API + DB) + Vercel (frontend) · Git + GitHub.
@@ -41,7 +43,9 @@ login → JWT signed by server → httpOnly cookie → `authenticate` verifies s
 - Write scope: "Only assigned subjects" — every teacher can VIEW every student; a teacher can only WRITE progress for subjects assigned to them via `TeacherSubject`.
 - Security is **server-side only**. Hiding UI buttons is not security; every request re-checked in middleware. ← headline claim + best interview talking point.
 
-## 4. Database schema (PLANNED — NOT IMPLEMENTED, 8 models)
+## 4. Database schema (IMPLEMENTED — 9 models)
+
+> Migrations live in `server/prisma/migrations/` (`init` applied; `add_guidance_requests` applied when `npx prisma migrate dev --name add_guidance_requests` succeeds). Commands: `prisma migrate dev` (local), `prisma migrate deploy` (prod).
 
 | Model | Key fields |
 |---|---|
@@ -53,6 +57,7 @@ login → JWT signed by server → httpOnly cookie → `authenticate` verifies s
 | `TeacherSubject` | teacherId, subjectId (drives write permission) |
 | `ProgressEntry` | studentId, subjectId, teacherId, type (PROJECT\|ASSIGNMENT\|NOTE\|EXAM), title, status, marksObtained, maxMarks, remark, recordedAt, createdAt, updatedAt |
 | `AuditLog` | actorId, action, entityType, entityId, before, after, createdAt |
+| `GuidanceRequest` | studentId, subjectId, teacherId?, topic, details, status (PENDING\|SCHEDULED\|COMPLETED), teacherReply, respondedAt, createdAt, updatedAt |
 
 **Design decision to defend in viva:** single `ProgressEntry` table with a `type` discriminator instead of 4 tables. Cost: some nullable columns. Benefit: whole student history = one query, one unified timeline. Pattern: single-table design with discriminator column.
 
@@ -60,17 +65,17 @@ login → JWT signed by server → httpOnly cookie → `authenticate` verifies s
 
 | # | Phase | Status |
 |---|---|---|
-| 1 | Folder skeleton, .gitignore, git init, GitHub repo, first commit, docs/PROJECT_STATE.md | 🟡 IN PROGRESS |
-| 2 | Docker Postgres, Prisma schema, first migration, seed data | ⬜ |
-| 3 | Express server, env config, error handler, /api/health | ⬜ |
-| 4 | Auth + permission model (bcrypt, JWT cookies, role + subject middleware) | ⬜ |
-| 5 | Core API: students, classes, subjects, progress, audit, analytics | ⬜ |
-| 6 | API verification + optional small permission tests + early backend deploy dry run | ⬜ |
-| 7 | Vite + React + Tailwind + Router + auth context + login/register | ⬜ |
-| 8 | Student dashboard + trend chart | ⬜ |
-| 9 | Teacher dashboard: list, search/filter, student detail, progress forms | ⬜ |
-| 10 | PDF report card + polish (loading/empty/error, responsive, 404) | ⬜ |
-| 11 | Hardening: rate limit, validation sweep, secret check, headers | ⬜ |
+| 1 | Folder skeleton, .gitignore, git init, GitHub repo, first commit, docs/PROJECT_STATE.md | ✅ COMPLETE — commit `b72970a` pushed to GitHub (2026-09-09) |
+| 2 | Docker Postgres, Prisma schema, first migration, seed data | ✅ COMPLETE — migration `init` applied + seed run (2026-09-09) |
+| 3 | Express server, env config, error handler, /api/health | ✅ COMPLETE (user-verified) |
+| 4 | Auth + permission model (bcrypt, JWT cookies, role + subject middleware) | ✅ COMPLETE (user-verified) |
+| 5 | Core API: students, classes, subjects, progress, audit, analytics | ✅ COMPLETE (user-verified) |
+| 6 | API verification + optional small permission tests + early backend deploy dry run | ✅ COMPLETE (user-verified — Swagger `/api/docs`, Postman collection, env validation, prod checklist) |
+| 7 | Vite + React + Tailwind + Router + auth context + login/register | 🟡 BUILT — client scaffold + AuthContext + login/register + backend register/classes; browser verify pending |
+| 8 | Student dashboard + trend chart | 🟡 BUILT — read-only dashboard + Guidance-Requests EXTENSION (schema, endpoints, UI); migration + browser verify pending |
+| 9 | Teacher dashboard: list, search/filter, student detail, progress forms | 🟡 BUILT — progress edit/soft-delete endpoints + StudentsPage + StudentDetailPage (add/edit/delete modals + guidance respond) + ProgressPage + AnalyticsPage; migration + browser verify pending |
+| 10 | PDF report card + polish (loading/empty/error, responsive, 404) | 🟡 BUILT — pdfmake report endpoint (`GET /api/reports/:id/pdf` + `/me/pdf`, A4 report card w/ subject table + remarks) + Download buttons + `lib/download.js`; needs `npm i pdfmake` + verify |
+| 11 | Hardening: rate limit, validation sweep, secret check, headers | 🟡 IN PROGRESS — express-rate-limit (global + auth) + Zod schemas + validate() wired on auth/progress/requests/students + helmet CSP configured + A2 student-contact endpoint added |
 | 12 | Final deploy: Vercel frontend, env vars, prod migrations | ⬜ |
 | 13 | README + architecture diagram + ERD + screenshots + demo accounts + demo recording + resume bullets | ⬜ |
 
@@ -88,6 +93,13 @@ Pacing: Phases 1–6 week 1, 7–10 week 2, 11–13 week 3.
 - Deletes are soft deletes (reconciles "free from tampering").
 - `.gitignore` written before first commit (a committed secret lives in history forever).
 - Package versions pinned from the generated lockfile (never guessed — sandbox blocks npm registry).
+- **Prisma pinned to 5.22.0** (user-directed, 2026-09-09) — v7's new generator broke with `provider = "prisma-client-js"`; clean reinstall of `prisma@5.22.0` + `@prisma/client@5.22.0` fixed it. Verify with `npx prisma --version` before any future upgrade.
+- Roles are exactly **TEACHER** and **STUDENT** (Prisma enum) — there is NO ADMIN role. `authorize(...roles)` is generic (takes any role list per route); routes that need teacher-only pass `authorize("TEACHER")`. (User's Phase-4 wording mentioned "ADMIN" — flagged, not added, to keep the locked 2-role model.)
+- **Guidance Requests — v1 EXTENSION (user-approved 2026-09-10):** documented, deliberate expansion. Students may CREATE guidance requests (`POST /api/requests`, status PENDING) — the single narrow exception to "students never write." Teachers respond only for subjects they are assigned to (`PATCH /api/requests/:id/respond`, same write-scope as progress). Academic progress entries remain strictly teacher-write.
+- **Progress edit/soft-delete (Phase 9, 2026-09-10):** `PATCH /api/progress/:id` + `DELETE /api/progress/:id` (soft). Subject-scope resolved via async `requireSubjectAccess` resolver — on PATCH, teacher must be assigned to the new subject if changed, else to the entry's current subject; DELETE checks the entry's subject. Both write before/after to AuditLog atomically.
+- **Phase 9 JSX integrity fix (2026-09-10):** a stray duplicate closing block at the tail of `StudentDetailPage.jsx` (leftover `</div>` / `);` / `}`) was removed — it would have failed the Vite build. All Phase 7–9 page files re-verified to terminate cleanly (`App.jsx`, `StudentsPage`, `StudentDetailPage`, `ProgressPage`, `AnalyticsPage`).
+- **RegisterPage dropdown fix (2026-09):** `GET /api/classes` returns `{ classes: [...] }`; the fetch now reads `res.data?.classes ?? res.data?.data?.classes ?? res.data` and always sets an array (`setClasses(Array.isArray(...) ? ... : [])`) — fixed the `classes.map is not a function` crash.
+- **Phase 11 security hardening (2026-09):** `express-rate-limit` — global `/api` (300/15min) + tighter `/api/auth` (15/15min, brute-force guard). Zod schemas in `src/schemas/index.js` (all `.strict()`) + `validate()` middleware wired onto auth/progress/requests/students — forged `role` or academic-field writes now rejected with 400. Helmet configured (relaxed CSP for Swagger in dev only).
 
 ## 7. Dummy / demo data (mandated by user)
 
@@ -96,10 +108,10 @@ Pacing: Phases 1–6 week 1, 7–10 week 2, 11–13 week 3.
 
 ## 8. Open questions / assumptions
 
-- [ ] **A1 — Teacher accounts:** seed script creates the first teacher; logged-in teachers create further teachers. Public signup can **never** mint a TEACHER. (Unconfirmed — needed before Phase 2 schema.)
-- [ ] **A2 — Students may edit own contact details (phone/address) only**; never rollNumber/class/batch/academic fields. (Unconfirmed.)
-- [ ] **A3 — Teacher edits allowed; every edit writes before/after to AuditLog; deletes are soft.** (Unconfirmed — needed before Phase 2 schema.)
-- [ ] **A4 — GitHub account:** exists? Username? (Needed to finish Phase 1 push.)
+- [x] **A1 — Teacher accounts (CONFIRMED by user 2026-09-09):** teacher accounts are created by Admin (the seeded/first teacher) or by the seed script only. Public signup can **never** mint a TEACHER.
+- [x] **A2 — Student contact edits (CONFIRMED by user 2026-09):** students may edit ONLY their own `phone` and `address` (`PATCH /api/students/me`). Academic fields (rollNumber, classId, batch, yearOfAdmission) are locked — rejected by an `.strict()` Zod schema (400) before any handler runs; teachers can still edit them via `PATCH /api/students/:id`.
+- [x] **A3 — Edits & deletes (CONFIRMED by user 2026-09-09):** teacher edits allowed; every edit writes before/after to the AuditLog; deletions are **soft** (hidden, never physically erased).
+- [x] **A4 — GitHub account (RESOLVED 2026-09-09):** username `tauheedkhan1717-max`; repo `https://github.com/tauheedkhan1717-max/teacher-guidance-management-system`; commit `b72970a` pushed to `master`.
 
 ## 9. Verified machine state (2026-09-02)
 

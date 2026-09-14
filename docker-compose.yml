@@ -1,0 +1,26 @@
+# Dev-only Docker Compose file.
+# Starts a single PostgreSQL 16 database for LOCAL development.
+# Production uses Render Postgres instead (see Phase 12).
+# Why Docker: same Postgres engine as production = "works locally, breaks in prod" is avoided.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: tgms-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tgms
+      POSTGRES_PASSWORD: tgms
+      POSTGRES_DB: tgms
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tgms -d tgms"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
