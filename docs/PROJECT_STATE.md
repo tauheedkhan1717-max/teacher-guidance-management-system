@@ -40,10 +40,11 @@ POSTGRESQL 16 (Docker `tgms-db` :5432 local / Render prod)
 ### Auth / authorisation flow (the core of the project)
 login → JWT signed by server → httpOnly cookie (7-day, `sameSite` lax dev / none prod, optional `COOKIE_DOMAIN`) → `authenticate` verifies signature (cookie OR Bearer) → attaches `{userId, role, name}`; no/invalid token = **401**. `authorize(...roles)` closure = **403** on mismatch. Identity-scope gates (student may only read own progress; teacher may only delete own notices) read the JWT, never client input, and are separate middleware/controller logic. Then Zod `.strict()` (forged `role`/unknown keys → 400). Then Prisma interactive `$transaction` writing the domain row + AuditLog **via the tx client `tx`** — never the global `prisma` inside a transaction (historical P2003 bug). Security is **server-side only** — hiding UI is never security; every request re-checked in middleware. ← headline claim + best interview talking point.
 
-### Permission model (CURRENT, as of 2026-09-14)
+### Permission model (CURRENT, as of 2026-09-15)
 - **Three roles** — `ADMIN | TEACHER | STUDENT` (Prisma enum; `User.role` defaults to STUDENT).
 - Public registration mints **STUDENT exclusively** (role hard-coded in controller). **TEACHER accounts are invite-only**: ADMIN generates single-use 7-day `TeacherInvite` codes; teacher redeems at `/teacher-register`. ADMIN exists only via seed.
-- Teachers may VIEW every student and WRITE progress for any of them; subject-scoping was pruned and will be rebased on `Group`/`GroupMember` (already modeled, no API).
+- **Teacher write-scope is GROUP-BASED (live since 2026-09-15):** a teacher may log progress ONLY for students who are active members of one of THEIR groups — enforced by `requireGroupAccess` middleware re-querying live `GroupMember` membership on every request (removing a student from a group revokes write access instantly). ADMIN bypasses the membership gate but progress writes remain TEACHER-only by role. Teachers may still VIEW every student.
+- Group management: TEACHER owns their groups (owner-or-ADMIN enforced in controller for member ops/delete); ADMIN sees and manages all groups.
 - Notice board: read = any authenticated role; post = TEACHER/ADMIN; soft-delete = author or ADMIN (server-enforced).
 
 ## 4. Database schema (IMPLEMENTED — `server/prisma/schema.prisma`, one migration `20260914113323_init_core_schema`)
@@ -57,7 +58,7 @@ Every model: `uuid()` PK, `createdAt`/`updatedAt`, `isDeleted` soft-delete flag 
 | `TeacherProfile` | userId (unique), employeeId (unique), department. |
 | `ProgressEntry` | studentId, type (`UNIT_TEST\|MICRO_PROJECT\|END_SEM\|ASSIGNMENT`), title, marksObtained?, maxMarks?, remark?, recordedAt. **No subjectId/teacherId** (pruned; group-scoping next phase). |
 | `TeacherInvite` | code (unique), department, createdById, usedById (unique), isUsed, expiresAt. Single-use, expiring; unused past expiry displays "Expired". |
-| `Group` / `GroupMember` | teacher-owned student groupings. **Schema-ready, zero API** (next phase's scoping primitive). |
+| `Group` / `GroupMember` | teacher-owned student groupings — **the teacher write-scope primitive, LIVE since 2026-09-15**. `GroupMember` has `@@unique([groupId, studentId])`, so re-adding a soft-deleted member RESTORES the row (create would violate the constraint). |
 | `Notice` | title, content, authorId→User. **LIVE since 2026-09-14** (see §5, Phase 14). |
 | `LeaveRequest` | studentId, reason, startDate, endDate, status enum `PENDING\|APPROVED\|REJECTED`. **Schema-ready, zero API.** |
 | `Attendance` | studentId, date, isPresent, `@@unique([studentId, date])`. **Schema-ready, zero API.** |
@@ -75,7 +76,7 @@ Every model: `uuid()` PK, `createdAt`/`updatedAt`, `isDeleted` soft-delete flag 
 | 12 | Deep clean + stabilisation session (2026-09-14) | ✅ build-verified client (372 kB), deleted 8 dead files (commit `5fa2a19`), removed monolith-era root relics (empty `server.js`, mongoose root `package.json`, empty `controllers/models/routes/public/` dirs), documented §7 debt |
 | 13 | **Notice Board** (first Pro-Max feature) | ✅ 2026-09-14, commit `141566c` — full vertical slice, live-verified end-to-end |
 | 14 | PDF report card (pdfmake), student phone self-edit | ⬜ reclaim pdfmake integration from git history of old repo |
-| 15 | Group-based teacher scoping (`Group`/`GroupMember`) | ⬜ replaces pruned subject scoping |
+| 15 | Group-based teacher scoping (`Group`/`GroupMember`) | ✅ 2026-09-15 — groups CRUD + member management + `requireGroupAccess` on progress writes; full matrix live-verified (403 outsider/other-teacher/removed-member, RESTORED re-add, audit rows) |
 | 16 | Analytics rebuild (Recharts, real entries, attendance %) | ⬜ |
 | 17 | Final deploy: Render + Vercel, env vars, `prisma migrate deploy` | ⬜ |
 | 18 | README + architecture diagram + ERD + screenshots + demo accounts + demo recording + resume bullets | ⬜ |
@@ -92,10 +93,16 @@ Every model: `uuid()` PK, `createdAt`/`updatedAt`, `isDeleted` soft-delete flag 
 | `POST /api/auth/register-teacher` | validate(registerTeacherSchema) | Invite-only; duplicate email 409; no auto-login |
 | `POST /api/admin/invites` | authenticate · authorize(ADMIN) | Random 8-char code, 7-day expiry |
 | `GET /api/admin/invites` | authenticate · authorize(ADMIN) | `createdBy`/`usedBy` are **objects** (frontend unwraps `.name`); returns bare array |
-| `POST /api/progress` | auth · authorize(TEACHER) · validate | FK-checks student (400); entry+AuditLog tx → 201 |
+| `POST /api/progress` | auth · authorize(TEACHER) · validate · **requireGroupAccess** | Write-scope: student must be an active member of the teacher's group (ADMIN bypasses gate but role gate still blocks admin); FK-checks student (400); entry+AuditLog tx → 201 |
 | `GET /api/progress/me` | auth · authorize(STUDENT) | Declared before `/:studentId` (param-swallowing hazard) |
 | `GET /api/progress/:studentId` | auth · authorize(TEACHER,STUDENT) · own-id gate | Student + not-own-id → 403 |
 | `GET /api/students` | auth · authorize(TEACHER,ADMIN) | `{students:[...]}`, rollNumber order |
+| `GET /api/groups` | auth · authorize(TEACHER,ADMIN) | TEACHER: own groups + memberCount; ADMIN: all groups; `{groups:[...]}` |
+| `POST /api/groups` | auth · authorize(TEACHER,ADMIN) · validate | `.strict()` name only (Group model has no description column); group+AuditLog tx → 201 |
+| `DELETE /api/groups/:id` | auth · authorize(TEACHER,ADMIN) | Soft delete; owner-or-ADMIN (403 otherwise); 404 if missing |
+| `GET /api/groups/:id/members` | auth · authorize(TEACHER,ADMIN) | Owner-or-ADMIN; active members with user info |
+| `POST /api/groups/:id/members` | auth · authorize(TEACHER,ADMIN) · validate | Owner-or-ADMIN; FK pre-check (400); 409 if already active member; **RESTORES** soft-deleted membership (200) because `@@unique([groupId,studentId])` blocks re-create; tx+AuditLog |
+| `DELETE /api/groups/:id/members/:memberId` | auth · authorize(TEACHER,ADMIN) | Soft-deletes membership; owner-or-ADMIN; tx+AuditLog(SOFT_DELETED) |
 | `GET /api/notices` | authenticate | Any role; `{notices:[...]}` newest-first, author included |
 | `POST /api/notices` | auth · authorize(TEACHER,ADMIN) · validate | title 3–150, content 1–5000, `.strict()`; notice+AuditLog(CREATED) tx → 201 |
 | `DELETE /api/notices/:id` | auth · authorize(TEACHER,ADMIN) | Soft delete; author-or-ADMIN enforced in controller (403 otherwise); 404 if missing/already deleted; AuditLog(SOFT_DELETED) with beforeData |
@@ -115,7 +122,8 @@ Every model: `uuid()` PK, `createdAt`/`updatedAt`, `isDeleted` soft-delete flag 
 ## 8. Dummy / demo data
 
 - **Seed (server/prisma/seed.js, idempotent upsert):** `admin@tgms.edu` / `Admin@Root123` ("System Administrator") + demo invite code `POLY-ADMIN-CREATES-INVITE` (Computer Engineering, 7-day expiry from seed time).
-- **Live demo state (2026-09-14):** one posted notice "Welcome to the TGMS notice board" (author: System Administrator) exists as a demo fixture; smoke-test notices were created and soft-deleted during verification (their audit rows remain by design).
+- **Live demo state (2026-09-15):** notice "Welcome to the TGMS notice board" (admin) · group "Gate Test Batch" (teacher Gate Test Teacher) containing student GT-100 with two progress entries. Smoke-test artifacts soft-deleted during verification remain only as AuditLog rows (by design).
+- **Extra demo accounts created during group-scope verification (2026-09-15):** teachers `gatet1@tgms.test` / `gatet2@tgms.test` and students `gates1@tgms.test` (GT-100) / `gateout@tgms.test` (GT-200), all password `Teacher@1234` / `Stud@12345` respectively — usable for the seminar demo, or deletable before deploy.
 
 ## 9. Operational reference
 
@@ -127,7 +135,7 @@ Every model: `uuid()` PK, `createdAt`/`updatedAt`, `isDeleted` soft-delete flag 
 
 ## 10. Historical bug patterns to never repeat
 
-(a) global `prisma` used inside `$transaction` → P2003 on `AuditLog_actorId_fkey` — always use `tx`; (b) old `auditLog` helper with `before`/`after` on the new schema → column mismatch — current columns are `beforeData`/`afterData` and hold stringified JSON; (c) Prisma `Date` objects hitting string methods → guarded formatters (`fmtDate`); (d) rendering API objects as React children → white screen — unwrap with `?.` + fallback, `Array.isArray` before `.map`; (e) `<select>` string vs number → `z.coerce` on intake; (f) `</ProtectedRoute />` self-closing **closing** tag — esbuild "Expected `>` but found `/`" (caught 2026-09-14).
+(a) global `prisma` used inside `$transaction` → P2003 on `AuditLog_actorId_fkey` — always use `tx`; (b) old `auditLog` helper with `before`/`after` on the new schema → column mismatch — current columns are `beforeData`/`afterData` and hold stringified JSON; (c) Prisma `Date` objects hitting string methods → guarded formatters (`fmtDate`); (d) rendering API objects as React children → white screen — unwrap with `?.` + fallback, `Array.isArray` before `.map`; (e) `<select>` string vs number → `z.coerce` on intake; (f) `</ProtectedRoute />` self-closing **closing** tag — esbuild "Expected `>` but found `/`" (caught 2026-09-14); (g) writing a Zod-accepted field that has NO Prisma column (Group `description`) → PrismaClientValidationError 500 — always cross-check schema.prisma before adding form fields; (h) re-creating a row under `@@unique` after soft delete → P2002 forever — RESTORE soft-deleted rows instead of creating (GroupMember addMember does this).
 
 ## 11. Sandbox limitations (for future assistants)
 

@@ -24,6 +24,7 @@ export default function AppLayout({ children }) {
 
   const isTeacher = user?.role === "TEACHER";
   const isAdmin = user?.role === "ADMIN";
+  const showGroups = isTeacher || isAdmin;
 
   const badgeClass = isAdmin
     ? "bg-amber-100 text-amber-700"
@@ -49,6 +50,11 @@ export default function AppLayout({ children }) {
             <NavLink to="/notices" className={navLinkClass}>
               Notices
             </NavLink>
+            {showGroups && (
+              <NavLink to="/groups" className={navLinkClass}>
+                Groups
+              </NavLink>
+            )}
           </nav>
 
           <div className="hidden items-center gap-3 md:flex">
@@ -89,6 +95,11 @@ export default function AppLayout({ children }) {
             <NavLink to="/notices" className={navLinkClass}>
               Notices
             </NavLink>
+            {showGroups && (
+              <NavLink to="/groups" className={navLinkClass}>
+                Groups
+              </NavLink>
+            )}
             <button
               onClick={handleLogout}
               className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-100"

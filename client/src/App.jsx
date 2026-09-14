@@ -2,7 +2,7 @@
 //   Public:    /  /login  /register  /teacher-register
 //   Protected: /dashboard (role redirect) · /admin-dashboard (ADMIN) ·
 //              /teacher-dashboard (TEACHER) · /student-dashboard (STUDENT) ·
-//              /notices (any role)
+//              /notices (any role) · /groups (TEACHER, ADMIN)
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
@@ -15,6 +15,7 @@ import TeacherDashboard from "./pages/TeacherDashboard.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import StudentDashboard from "./pages/StudentDashboard.jsx";
 import NoticeBoard from "./pages/NoticeBoard.jsx";
+import GroupsPage from "./pages/GroupsPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/student-dashboard" element={<ProtectedRoute roles={["STUDENT"]}><StudentDashboard /></ProtectedRoute>} />
           <Route path="/notices" element={<ProtectedRoute><NoticeBoard /></ProtectedRoute>} />
+          <Route path="/groups" element={<ProtectedRoute roles={["TEACHER", "ADMIN"]}><GroupsPage /></ProtectedRoute>} />
 
           {/* Fallback */}
           <Route path="*" element={<NotFoundPage />} />

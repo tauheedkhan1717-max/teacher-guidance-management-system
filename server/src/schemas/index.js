@@ -74,6 +74,22 @@ export const createProgressSchema = z
   })
   .strict();
 
+// ---------- Groups (teacher write-scope) ----------
+
+// A teacher's write-scope primitive: progress may only be logged for students in
+// one of the teacher's groups (server-enforced by requireGroupAccess).
+export const createGroupSchema = z
+  .object({
+    name: z.string().trim().min(2).max(100),
+  })
+  .strict();
+
+export const addGroupMemberSchema = z
+  .object({
+    studentId: z.string().min(1),
+  })
+  .strict();
+
 // ---------- Notices ----------
 
 // Notice board: any authenticated role may READ; only TEACHER/ADMIN may write (route gate).
