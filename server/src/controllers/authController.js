@@ -45,6 +45,7 @@ export async function login(req, res) {
 
   res.json({
     user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    token
   });
 }
 
@@ -112,7 +113,7 @@ export async function register(req, res, next) {
   const token = signToken({ userId: user.id, role: user.role, name: user.name });
   res.cookie(COOKIE_NAME, token, cookieOptions());
 
-  res.status(201).json({ user });
+  res.status(201).json({ user, token });
 }
 
 // Teacher registration — invite-only (A1, locked).

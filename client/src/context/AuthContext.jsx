@@ -16,18 +16,23 @@ export function AuthProvider({ children }) {
     api
       .get("/auth/me")
       .then((res) => setUser(res.data.user))
-      .catch(() => setUser(null))
+      .catch(() => {
+        localStorage.removeItem("tgms_token");
+        setUser(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   const login = useCallback(async (email, password) => {
     const res = await api.post("/auth/login", { email, password });
+    if (res.data.token) localStorage.setItem("tgms_token", res.data.token);
     setUser(res.data.user);
     return res.data.user;
   }, []);
 
   const register = useCallback(async (payload) => {
     const res = await api.post("/auth/register", payload);
+    if (res.data.token) localStorage.setItem("tgms_token", res.data.token);
     setUser(res.data.user);
     return res.data.user;
   }, []);
@@ -36,6 +41,7 @@ export function AuthProvider({ children }) {
     try {
       await api.post("/auth/logout");
     } finally {
+      localStorage.removeItem("tgms_token");
       setUser(null); // clear local state even if the network call fails
     }
   }, []);
