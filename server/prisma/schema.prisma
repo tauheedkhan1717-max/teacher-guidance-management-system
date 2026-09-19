@@ -27,38 +27,40 @@ enum LeaveStatus {
 }
 
 model User {
-  id             String   @id @default(uuid())
-  email          String   @unique
-  passwordHash   String
-  name           String
-  role           Role     @default(STUDENT)
+  id           String @id @default(uuid())
+  email        String @unique
+  passwordHash String
+  name         String
+  role         Role   @default(STUDENT)
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  isDeleted      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
 
-  studentProfile StudentProfile?
-  teacherProfile TeacherProfile?
-  auditLogs      AuditLog[]       @relation("AuditActor")
+  createdTasks    Task[]          @relation("TaskCreator")
+  studentProfile  StudentProfile?
+  teacherProfile  TeacherProfile?
+  auditLogs       AuditLog[]      @relation("AuditActor")
   authoredNotices Notice[]        @relation("NoticeAuthor")
-  
+
   // Relations for the Invite System
-  createdInvites TeacherInvite[]  @relation("AdminInvites")
-  usedInvite     TeacherInvite?   @relation("TeacherClaimedInvite")
+  createdInvites TeacherInvite[] @relation("AdminInvites")
+  usedInvite     TeacherInvite?  @relation("TeacherClaimedInvite")
 }
 
 model StudentProfile {
-  id              String   @id @default(uuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id])
-  rollNumber      String   @unique
+  id              String  @id @default(uuid())
+  userId          String  @unique
+  user            User    @relation(fields: [userId], references: [id])
+  rollNumber      String  @unique
   yearOfAdmission Int
   phone           String?
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  isDeleted       Boolean  @default(false)
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  taskSubmissions TaskSubmission[]
   progressEntries ProgressEntry[]
   groupMembers    GroupMember[]
   leaveRequests   LeaveRequest[]
@@ -66,133 +68,200 @@ model StudentProfile {
 }
 
 model TeacherProfile {
-  id          String   @id @default(uuid())
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id])
-  employeeId  String   @unique
-  department  String
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  isDeleted   Boolean  @default(false)
+  id         String @id @default(uuid())
+  userId     String @unique
+  user       User   @relation(fields: [userId], references: [id])
+  employeeId String @unique
+  department String
 
-  groups      Group[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  groups Group[]
 }
 
 model ProgressEntry {
-  id              String         @id @default(uuid())
-  studentId       String
-  student         StudentProfile @relation(fields: [studentId], references: [id])
-  type            ProgressType
-  title           String
-  marksObtained   Float?
-  maxMarks        Float?
-  remark          String?
-  
-  recordedAt      DateTime       @default(now())
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  isDeleted       Boolean        @default(false)
+  id            String         @id @default(uuid())
+  studentId     String
+  student       StudentProfile @relation(fields: [studentId], references: [id])
+  type          ProgressType
+  title         String
+  marksObtained Float?
+  maxMarks      Float?
+  remark        String?
+
+  recordedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  isDeleted  Boolean  @default(false)
 }
 
 model Group {
-  id          String         @id @default(uuid())
-  name        String         
-  teacherId   String
-  teacher     TeacherProfile @relation(fields: [teacherId], references: [id])
-  
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  isDeleted   Boolean        @default(false)
+  id        String         @id @default(uuid())
+  name      String
+  teacherId String
+  teacher   TeacherProfile @relation(fields: [teacherId], references: [id])
 
-  members     GroupMember[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+  tasks     Task[]
+
+  members GroupMember[]
+  targets GroupTarget[]
 }
 
 model GroupMember {
-  id          String         @id @default(uuid())
-  groupId     String
-  group       Group          @relation(fields: [groupId], references: [id])
-  studentId   String
-  student     StudentProfile @relation(fields: [studentId], references: [id])
-  
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  isDeleted   Boolean        @default(false)
+  id        String         @id @default(uuid())
+  groupId   String
+  group     Group          @relation(fields: [groupId], references: [id])
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
 
   @@unique([groupId, studentId])
 }
 
+model GroupTarget {
+  id          String       @id @default(uuid())
+  groupId     String
+  group       Group        @relation(fields: [groupId], references: [id])
+  type        ProgressType
+  totalTarget Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  isDeleted   Boolean      @default(false)
+
+  @@unique([groupId, type])
+}
+
 model Notice {
-  id          String   @id @default(uuid())
-  title       String
-  content     String
-  authorId    String
-  author      User     @relation("NoticeAuthor", fields: [authorId], references: [id])
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  isDeleted   Boolean  @default(false)
+  id       String @id @default(uuid())
+  title    String
+  content  String
+  authorId String
+  author   User   @relation("NoticeAuthor", fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
 }
 
 model LeaveRequest {
-  id          String         @id @default(uuid())
-  studentId   String
-  student     StudentProfile @relation(fields: [studentId], references: [id])
-  reason      String
-  startDate   DateTime
-  endDate     DateTime
-  status      LeaveStatus    @default(PENDING)
-  
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  isDeleted   Boolean        @default(false)
+  id        String         @id @default(uuid())
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id])
+  reason    String
+  startDate DateTime
+  endDate   DateTime
+  status    LeaveStatus    @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
 }
 
 model Attendance {
-  id          String         @id @default(uuid())
-  studentId   String
-  student     StudentProfile @relation(fields: [studentId], references: [id])
-  date        DateTime
-  isPresent   Boolean
-  
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  isDeleted   Boolean        @default(false)
+  id        String         @id @default(uuid())
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id])
+  date      DateTime
+  isPresent Boolean
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
 
   @@unique([studentId, date])
 }
 
 model AuditLog {
-  id          String   @id @default(uuid())
-  actorId     String
-  actor       User     @relation("AuditActor", fields: [actorId], references: [id])
-  action      String
-  entityType  String
-  entityId    String
-  beforeData  String?  
-  afterData   String?  
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  isDeleted   Boolean  @default(false)
+  id         String  @id @default(uuid())
+  actorId    String
+  actor      User    @relation("AuditActor", fields: [actorId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  beforeData String?
+  afterData  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
 }
 
 // --- New Model: Teacher Invites ---
 model TeacherInvite {
-  id          String   @id @default(uuid())
-  code        String   @unique 
-  department  String   
-  
-  createdById String   
-  createdBy   User     @relation("AdminInvites", fields: [createdById], references: [id])
-  
-  usedById    String?  @unique
-  usedBy      User?    @relation("TeacherClaimedInvite", fields: [usedById], references: [id])
-  
-  isUsed      Boolean  @default(false)
-  expiresAt   DateTime
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  isDeleted   Boolean  @default(false)
+  id         String @id @default(uuid())
+  code       String @unique
+  department String
+
+  createdById String
+  createdBy   User   @relation("AdminInvites", fields: [createdById], references: [id])
+
+  usedById String? @unique
+  usedBy   User?   @relation("TeacherClaimedInvite", fields: [usedById], references: [id])
+
+  isUsed    Boolean  @default(false)
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+}
+
+// ==========================================
+// Phase F: Custom Task Workflow
+// ==========================================
+
+model Task {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  dueDate     DateTime?
+
+  // A task is assigned to a specific group
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id])
+
+  // Who created it (teacher/admin)
+  createdById String
+  createdBy   User   @relation("TaskCreator", fields: [createdById], references: [id])
+
+  submissions TaskSubmission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+}
+
+enum TaskStatus {
+  ASSIGNED
+  SUBMITTED
+  COMPLETED
+}
+
+model TaskSubmission {
+  id     String @id @default(uuid())
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id])
+
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id])
+
+  status TaskStatus @default(ASSIGNED)
+
+  // Optional file url or text from student
+  studentNote String?
+  // Teacher feedback
+  teacherNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([taskId, studentId])
 }

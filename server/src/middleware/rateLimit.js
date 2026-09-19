@@ -16,7 +16,7 @@ export const apiLimiter = rateLimit({
 
 export const authLimiter = rateLimit({
   windowMs: WINDOW_MS,
-  max: 15, // 15 login/register attempts per IP per 15 minutes → denies brute force
+  max: 100, // 100 login/register attempts per IP per 15 minutes
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: { message: "Too many login attempts. Please wait 15 minutes." } },

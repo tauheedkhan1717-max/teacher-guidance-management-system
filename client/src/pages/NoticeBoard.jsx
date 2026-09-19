@@ -97,7 +97,7 @@ export default function NoticeBoard() {
   const list = Array.isArray(notices) ? notices : [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* ---------- Header ---------- */}
       <section className="rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 p-6 text-white shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -142,7 +142,7 @@ export default function NoticeBoard() {
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Title (e.g. Unit test schedule announced)"
               maxLength={150}
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all duration-200"
             />
             <textarea
               value={content}
@@ -150,7 +150,7 @@ export default function NoticeBoard() {
               placeholder="Write the announcement…"
               rows={4}
               maxLength={5000}
-              className="w-full resize-y rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              className="w-full resize-y rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all duration-200"
             />
             {formError && <p className="text-sm font-medium text-red-600">{formError}</p>}
             <button

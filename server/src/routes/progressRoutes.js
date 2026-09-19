@@ -1,14 +1,17 @@
 // Progress routes.
-//   POST /api/progress          → TEACHER, only for students in their groups (requireGroupAccess)
-//   GET  /api/progress/me       → STUDENT (own)
-//   GET  /api/progress/:studentId → TEACHER (any student) | STUDENT (own id only)
+//   POST   /api/progress              → TEACHER, only for students in their groups (requireGroupAccess)
+//   POST   /api/progress/bulk         → TEACHER | ADMIN
+//   GET    /api/progress/me           → STUDENT (own)
+//   GET    /api/progress/:studentId   → TEACHER (any student) | STUDENT (own id only)
+//   PUT    /api/progress/:id          → TEACHER (edit entry, group-access enforced in controller)
+//   DELETE /api/progress/:id          → TEACHER (soft-delete, group-access enforced in controller)
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { authenticate, authorize } from "../middleware/auth.js";
 import { requireGroupAccess } from "../middleware/groupAccess.js";
 import { validate } from "../middleware/validate.js";
-import { createProgressSchema, bulkAddProgressSchema } from "../schemas/index.js";
-import { addProgress, getMyProgress, getStudentProgress } from "../controllers/progressController.js";
+import { createProgressSchema, bulkAddProgressSchema, updateProgressSchema } from "../schemas/index.js";
+import { addProgress, getMyProgress, getStudentProgress, updateProgress, deleteProgress } from "../controllers/progressController.js";
 import { bulkAddProgress } from "../controllers/bulkController.js";
 
 const router = Router();
@@ -62,6 +65,20 @@ router.get(
   authorize("TEACHER", "STUDENT"),
   studentOwnsRouteStudentId,
   getStudentProgress
+);
+
+// Edit and soft-delete — group-access is enforced inside the controller.
+router.put(
+  "/:id",
+  authorize("TEACHER"),
+  validate(updateProgressSchema),
+  updateProgress
+);
+
+router.delete(
+  "/:id",
+  authorize("TEACHER"),
+  deleteProgress
 );
 
 export const progressRouter = router;

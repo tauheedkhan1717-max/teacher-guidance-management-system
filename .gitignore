@@ -24,6 +24,18 @@ Thumbs.db
 
 # ---- AI assistant / tool state ----
 .freebuff/
+.agents/
 
 # ---- Test coverage ----
 coverage/
+
+# ---- Debug / temp scripts ----
+fix-*.js
+fix_*.sh
+test-*.js
+test_*.js
+debug-*.js
+script_*.sh
+replace-*.js
+out.js
+CONTEXT_HANDOVER.txt

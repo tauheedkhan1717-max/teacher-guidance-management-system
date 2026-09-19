@@ -11,6 +11,11 @@ import { studentRouter } from "./routes/studentRoutes.js";
 import { noticeRouter } from "./routes/noticeRoutes.js";
 import { groupRouter } from "./routes/groupRoutes.js";
 import { bulkRouter } from "./routes/bulkRoutes.js";
+import { analyticsRouter } from "./routes/analyticsRoutes.js";
+import { attendanceRouter } from "./routes/attendanceRoutes.js";
+import { reportRouter } from "./routes/reportRoutes.js";
+import { targetRouter } from "./routes/targetRoutes.js";
+import { taskRouter } from "./routes/taskRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import { apiLimiter, authLimiter } from "./middleware/rateLimit.js";
 
@@ -32,10 +37,15 @@ function loadSwaggerDoc() {
 export function createApp() {
   const app = express();
 
-  const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+  // CLIENT_ORIGIN can be a single URL or comma-separated list for multi-deploy support.
+  // e.g. "https://tgms.vercel.app,http://localhost:5173"
+  const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
 
   // Security headers. CSP is relaxed for DevTools/Swagger UI (inline styles/scripts);
-// production gets the stricter default (swagger is disabled there anyway).
+  // production gets the stricter default (swagger is disabled there anyway).
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -50,8 +60,18 @@ export function createApp() {
     })
   );
 
-  // CORS — allow the React dev server; credentials:true because auth is a cookie.
-  app.use(cors({ origin: clientOrigin, credentials: true }));
+  // CORS — dynamic origin check so both Vercel prod and localhost dev work.
+  app.use(
+    cors({
+      origin(origin, cb) {
+        // Allow requests with no origin (mobile apps, curl, server-to-server).
+        if (!origin) return cb(null, true);
+        if (allowedOrigins.includes(origin)) return cb(null, true);
+        return cb(new Error(`CORS: origin ${origin} not allowed`));
+      },
+      credentials: true,
+    })
+  );
 
   // Parse the Cookie header into req.cookies (required by `authenticate`).
   app.use(cookieParser());
@@ -81,6 +101,11 @@ export function createApp() {
   app.use("/api/notices", noticeRouter);
   app.use("/api/groups", groupRouter);
   app.use("/api/bulk", bulkRouter);
+  app.use("/api/analytics", analyticsRouter);
+  app.use("/api/attendance", attendanceRouter);
+  app.use("/api/reports", reportRouter);
+  app.use("/api/targets", targetRouter);
+  app.use("/api/tasks", taskRouter);
 
   // Error handling — must be registered LAST.
   app.use(notFound);

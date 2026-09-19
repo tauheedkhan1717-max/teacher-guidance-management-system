@@ -3,10 +3,11 @@
 // Create/delete groups, manage members. Read-only across all groups for ADMIN.
 // Defensive recipe throughout: ?? unwrap, Array.isArray, explicit loading/empty/error.
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Layers, RefreshCw, Trash2, UserPlus, Users, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Layers, RefreshCw, Trash2, UserPlus, Users, X, Target } from "lucide-react";
 import api from "../api/axios.js";
 import { cn } from "../lib/utils.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import SetGroupTargetsModal from "../components/SetGroupTargetsModal.jsx";
 
 function fmtDate(value) {
   if (!value) return "—";
@@ -40,6 +41,9 @@ export default function GroupsPage() {
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [adding, setAdding] = useState(false);
   const [busyId, setBusyId] = useState(null); // group being deleted or member being removed
+
+  // Targets modal
+  const [targetGroupId, setTargetGroupId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -176,7 +180,7 @@ export default function GroupsPage() {
   const addableStudents = students.filter((s) => s?.id && !memberIds.has(s.id));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* ---------- Header ---------- */}
       <section className="rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 p-6 text-white shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -218,7 +222,7 @@ export default function GroupsPage() {
       )}
 
       {/* ---------- Create form ---------- */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-3xl border border-white/60 bg-white/70 p-6 sm:p-8 shadow-xl shadow-slate-200/40 backdrop-blur-xl transition-all duration-300 hover:shadow-2xl hover:shadow-slate-200/50">
         <h2 className="text-lg font-bold text-slate-900">Create a group</h2>
         <form onSubmit={handleCreate} className="mt-4 space-y-3">
           <input
@@ -227,7 +231,7 @@ export default function GroupsPage() {
             onChange={(e) => setName(e.target.value)}
             placeholder="Group name (e.g. FY-CSE Batch A)"
             maxLength={100}
-            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all duration-200"
           />
           <button
             type="submit"
@@ -253,8 +257,7 @@ export default function GroupsPage() {
             </p>
           </div>
         ) : (
-          groups.map((g) => (
-            <div key={g?.id ?? Math.random()} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          groups.map((g, i) => (<div key={g?.id ?? Math.random()} className="rounded-2xl border border-slate-200 bg-white shadow-sm animate-fade-in-up" style={{ animationDelay: `${i * 0.05}s` }}>
               <div className="flex items-center justify-between gap-3 p-5">
                 <button onClick={() => openMembers(g)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
                   {expandedId === g?.id ? (
@@ -271,10 +274,20 @@ export default function GroupsPage() {
                   <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
                     {g?.memberCount ?? 0} member{(g?.memberCount ?? 0) === 1 ? "" : "s"}
                   </span>
+                  {!isAdmin && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setTargetGroupId(g.id); }}
+                      className="rounded-lg p-2 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                      aria-label="Set targets"
+                      title="Set targets"
+                    >
+                      <Target className="h-4 w-4" />
+                    </button>
+                  )}
                   <button
-                    onClick={() => handleDelete(g.id)}
+                    onClick={(e) => { e.stopPropagation(); handleDelete(g.id); }}
                     disabled={busyId === g?.id}
-                    className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                    className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50 transition-colors"
                     aria-label="Delete group"
                     title="Delete group"
                   >
@@ -296,8 +309,7 @@ export default function GroupsPage() {
                     <>
                       {members.length > 0 ? (
                         <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100 bg-white">
-                          {members.map((m) => (
-                            <li key={m?.membershipId ?? Math.random()} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                          {members.map((m, i) => (<li key={m?.membershipId ?? Math.random()} className="flex items-center justify-between gap-3 px-4 py-2.5 animate-fade-in-up" style={{ animationDelay: `${i * 0.05}s` }}>
                               <div className="min-w-0">
                                 <p className="truncate text-sm font-medium text-slate-800">
                                   {m?.student?.user?.name || "—"}{" "}
@@ -328,7 +340,7 @@ export default function GroupsPage() {
                         <select
                           value={selectedStudentId}
                           onChange={(e) => setSelectedStudentId(e.target.value)}
-                          className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                          className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all duration-200"
                         >
                           <option value="">Pick a student to add…</option>
                           {addableStudents.map((s) => (
@@ -358,6 +370,13 @@ export default function GroupsPage() {
           ))
         )}
       </section>
+
+      {targetGroupId && (
+        <SetGroupTargetsModal
+          groupId={targetGroupId}
+          onClose={() => setTargetGroupId(null)}
+        />
+      )}
     </div>
   );
 }

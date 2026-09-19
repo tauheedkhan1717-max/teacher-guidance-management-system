@@ -16,7 +16,7 @@ export default function ProtectedRoute({ roles, children }) {
   // 1) Session still hydrating → spinner (never flash the login page).
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 animate-fade-in-up">
         <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-indigo-600" />
       </div>
     );

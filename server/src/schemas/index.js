@@ -89,28 +89,6 @@ export const createProgressSchema = z
   })
   .strict();
 
-// ---------- Notices ----------
-
-export const updateOwnContactSchema = z
-  .object({
-    phone: z.string().trim().max(20).optional().or(z.literal("")),
-    address: z.string().trim().max(300).optional().or(z.literal("")),
-  })
-  .strict();
-
-export const updateStudentByTeacherSchema = z
-  .object({
-    rollNumber: z.string().trim().max(30).optional(),
-    batch: z.string().trim().max(20).optional(),
-    yearOfAdmission: z.coerce.number().int().min(1990).max(2100).optional(),
-    phone: z.string().trim().max(20).optional().or(z.literal("")),
-    address: z.string().trim().max(300).optional().or(z.literal("")),
-    classId: z.string().min(1).optional(),
-  })
-  .strict();
-
-
-
 // ---------- Groups (teacher write-scope) ----------
 
 // A teacher's write-scope primitive: progress may only be logged for students in
@@ -138,18 +116,39 @@ export const createNoticeSchema = z
   .strict();
 
 // ---------- Guidance requests ----------
-
-export const createRequestSchema = z
+export const recordAttendanceSchema = z
   .object({
-    subjectId: z.string().min(1),
-    topic: z.string().trim().min(1).max(200),
-    details: z.string().trim().max(500).optional().or(z.literal("")),
+    studentId: z.string().min(1),
+    date: z.string().datetime(),
+    isPresent: z.boolean(),
   })
   .strict();
 
-export const respondRequestSchema = z
+export const updatePhoneSchema = z
   .object({
-    status: z.enum(["SCHEDULED", "COMPLETED"]),
-    teacherReply: z.string().trim().max(500).optional().or(z.literal("")),
+    phone: z.string().trim().max(20).optional().or(z.literal("")),
+  })
+  .strict();
+
+// ---------- Progress CRUD (Phase 2) ----------
+
+// PUT /api/progress/:id — teacher editing an existing entry.
+// All fields optional: only the ones sent are updated.
+export const updateProgressSchema = z
+  .object({
+    type: z.enum(PROGRESS_TYPES).optional(),
+    title: z.string().trim().min(1).max(200).optional(),
+    marksObtained: z.number().min(0).optional().or(z.literal(null)),
+    maxMarks: z.number().min(0).optional().or(z.literal(null)),
+    remark: z.string().trim().max(500).optional().or(z.literal("")),
+  })
+  .strict();
+
+// ---------- Targets CRUD (Phase 3) ----------
+
+export const setGroupTargetSchema = z
+  .object({
+    type: z.enum(PROGRESS_TYPES),
+    totalTarget: z.number().int().min(0).max(1000),
   })
   .strict();

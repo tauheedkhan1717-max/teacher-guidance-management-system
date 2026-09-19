@@ -94,10 +94,10 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
-      <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-md">
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 dark:bg-slate-950 p-4 animate-fade-in-up">
+      <div className="w-full max-w-lg rounded-xl bg-white dark:bg-slate-900 border-white/20 dark:border-slate-800 p-6 shadow-md">
         <h2 className="text-2xl font-bold text-slate-800">Create your student account</h2>
-        <p className="mb-4 text-sm text-slate-500">Your profile becomes visible to teachers as soon as you register.</p>
+        <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">Your profile becomes visible to teachers as soon as you register.</p>
 
         {serverError && (
           <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">
@@ -107,46 +107,46 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="name">Full name</label>
-            <input id="name" type="text" value={form.name} onChange={(e) => set("name", e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+            <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="name">Full name</label>
+            <input id="name" type="text" value={form.name} onChange={(e) => set("name", e.target.value)} className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm" />
             {fieldError("name")}
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="email">Email</label>
-            <input id="email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+            <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="email">Email</label>
+            <input id="email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm" />
             {fieldError("email")}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="password">Password</label>
-              <input id="password" type="password" value={form.password} onChange={(e) => set("password", e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="password">Password</label>
+              <input id="password" type="password" value={form.password} onChange={(e) => set("password", e.target.value)} className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm" />
               {fieldError("password")}
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="confirmPassword">Confirm password</label>
-              <input id="confirmPassword" type="password" value={form.confirmPassword} onChange={(e) => set("confirmPassword", e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="confirmPassword">Confirm password</label>
+              <input id="confirmPassword" type="password" value={form.confirmPassword} onChange={(e) => set("confirmPassword", e.target.value)} className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm" />
               {fieldError("confirmPassword")}
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="rollNumber">Roll number / Student ID</label>
-              <input id="rollNumber" type="text" value={form.rollNumber} onChange={(e) => set("rollNumber", e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="rollNumber">Roll number / Student ID</label>
+              <input id="rollNumber" type="text" value={form.rollNumber} onChange={(e) => set("rollNumber", e.target.value)} className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm" />
               {fieldError("rollNumber")}
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="yearOfAdmission">Year of admission</label>
-              <input id="yearOfAdmission" type="number" value={form.yearOfAdmission || ""} onChange={(e) => set("yearOfAdmission", e.target.value)} placeholder="2025" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+              <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="yearOfAdmission">Year of admission</label>
+              <input id="yearOfAdmission" type="number" value={form.yearOfAdmission || ""} onChange={(e) => set("yearOfAdmission", e.target.value)} placeholder="2025" className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm" />
               {fieldError("yearOfAdmission")}
             </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="phone">Phone (optional)</label>
-            <input id="phone" type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+            <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="phone">Phone (optional)</label>
+            <input id="phone" type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm" />
           </div>
 
           <button type="submit" disabled={loading} className="w-full rounded-md bg-indigo-600 py-2 text-white font-medium hover:bg-indigo-700 disabled:opacity-50">
@@ -154,7 +154,7 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-slate-500">
+        <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
           Already have an account? <Link to="/login" className="text-indigo-600 hover:underline">Log in</Link>
         </p>
       </div>

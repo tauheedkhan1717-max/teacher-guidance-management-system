@@ -5,7 +5,7 @@ import { prisma } from "../lib/prisma.js";
 import { signToken } from "../lib/jwt.js";
 
 const COOKIE_NAME = "token";
-const COOKIE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60; // 7 days
+const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
 function cookieOptions() {
   const opts = {
@@ -15,7 +15,7 @@ function cookieOptions() {
     // Production: SPA (Vercel) and API (Render) are cross-site, so SameSite=None+Secure
     // is required for the cookie to travel. Dev is same-site (localhost), so Lax is safer.
     path: "/",
-    maxAge: COOKIE_MAX_AGE_SECONDS,
+    maxAge: COOKIE_MAX_AGE_MS,
   };
   // Optional: scope the cookie to a specific domain when deploying to a custom domain.
   if (process.env.COOKIE_DOMAIN) opts.domain = process.env.COOKIE_DOMAIN;

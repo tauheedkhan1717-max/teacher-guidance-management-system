@@ -56,13 +56,13 @@ export default function TeacherRegister() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 dark:bg-slate-950 px-4 animate-fade-in-up">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 border-white/20 dark:border-slate-800 p-8 shadow-sm">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/50">
           <GraduationCap className="h-7 w-7 text-indigo-600" />
         </div>
-        <h1 className="mt-4 text-center text-2xl font-bold text-slate-900">Teacher Registration</h1>
-        <p className="mt-1 text-center text-sm text-slate-500">
+        <h1 className="mt-4 text-center text-2xl font-bold text-slate-900 dark:text-white">Teacher Registration</h1>
+        <p className="mt-1 text-center text-sm text-slate-500 dark:text-slate-400">
           Invite-only. Contact the Administrator if you do not have an invite code.
         </p>
 
@@ -74,7 +74,7 @@ export default function TeacherRegister() {
 
                 <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
           <div>
-            <label htmlFor="name" className="mb-1 block text-sm font-medium text-slate-700">
+            <label htmlFor="name" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Full Name
             </label>
             <input
@@ -83,15 +83,15 @@ export default function TeacherRegister() {
               name="name"
               value={form.name}
               onChange={handleChange}
-              placeholder="Ashwini"
+              placeholder="Dr. Jane Doe"
               disabled={loading}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60"
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60 transition-all duration-200"
             />
             {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
           </div>
 
           <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700">
+            <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Email
             </label>
             <input
@@ -100,15 +100,15 @@ export default function TeacherRegister() {
               name="email"
               value={form.email}
               onChange={handleChange}
-              placeholder="ashwini@tgms.edu"
+              placeholder="you@college.edu"
               disabled={loading}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60"
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60 transition-all duration-200"
             />
             {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
           </div>
 
           <div>
-            <label htmlFor="department" className="mb-1 block text-sm font-medium text-slate-700">
+            <label htmlFor="department" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Department
             </label>
             <input
@@ -119,13 +119,13 @@ export default function TeacherRegister() {
               onChange={handleChange}
               placeholder="Electronics Engineering"
               disabled={loading}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60"
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60 transition-all duration-200"
             />
             {errors.department && <p className="mt-1 text-xs text-red-600">{errors.department}</p>}
           </div>
 
           <div>
-            <label htmlFor="inviteCode" className="mb-1 block text-sm font-medium text-slate-700">
+            <label htmlFor="inviteCode" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Invite Code
             </label>
             <input
@@ -136,13 +136,13 @@ export default function TeacherRegister() {
               onChange={handleChange}
               placeholder="e.g. ABC-DEF-123"
               disabled={loading}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60"
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60 transition-all duration-200"
             />
             {errors.inviteCode && <p className="mt-1 text-xs text-red-600">{errors.inviteCode}</p>}
           </div>
 
           <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
+            <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Password
             </label>
             <input
@@ -153,7 +153,7 @@ export default function TeacherRegister() {
               onChange={handleChange}
               placeholder="••••••••"
               disabled={loading}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60"
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60 transition-all duration-200"
             />
             {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
           </div>
@@ -167,7 +167,7 @@ export default function TeacherRegister() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-slate-500">
+        <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
           Back to{" "}
           <Link to="/login" className="font-semibold text-indigo-600 hover:underline">
             Login

@@ -86,7 +86,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <div className="min-h-screen bg-slate-50 p-6 animate-fade-in-up">
       <div className="mx-auto max-w-6xl">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
@@ -113,7 +113,7 @@ export default function AdminDashboard() {
                 onChange={(e) => setDepartment(e.target.value)}
                 placeholder="e.g. Electronics Engineering"
                 disabled={generating}
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:opacity-60 transition-all duration-200"
               />
             </div>
             <button
@@ -153,8 +153,7 @@ export default function AdminDashboard() {
                   </td>
                 </tr>
               ) : (
-                invites.map((invite) => (
-                  <tr key={invite?.id ?? invite?.code ?? Math.random()} className="hover:bg-slate-50">
+                invites.map((invite, i) => (<tr key={invite?.id ?? invite?.code ?? Math.random()} className="hover:bg-slate-50 animate-fade-in-up" style={{ animationDelay: `${i * 0.05}s` }}>
                     <td className="px-6 py-4 font-mono text-sm font-medium text-slate-900">{invite?.code ?? "—"}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">{invite?.department || "—"}</td>
                     <td className="px-6 py-4 text-sm">{statusBadge(invite)}</td>

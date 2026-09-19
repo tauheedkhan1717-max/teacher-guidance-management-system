@@ -32,3 +32,27 @@ router.post(
 router.get("/my-memberships", authenticate, authorize("STUDENT"), listMyGroupMemberships);
 
 export const bulkRouter = router;
+
+import { csvBulkRegisterSchema, csvBulkProgressSchema, csvBulkAttendanceSchema } from "../schemas/csvSchemas.js";
+import { csvRegisterStudents, csvAddProgress, csvAddAttendance } from "../controllers/csvBulkController.js";
+
+router.post(
+  "/csv/register-students",
+  authorize("TEACHER", "ADMIN"),
+  validate(csvBulkRegisterSchema),
+  csvRegisterStudents
+);
+
+router.post(
+  "/csv/progress",
+  authorize("TEACHER", "ADMIN"),
+  validate(csvBulkProgressSchema),
+  csvAddProgress
+);
+
+router.post(
+  "/csv/attendance",
+  authorize("TEACHER", "ADMIN"),
+  validate(csvBulkAttendanceSchema),
+  csvAddAttendance
+);

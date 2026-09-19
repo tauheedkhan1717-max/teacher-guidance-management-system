@@ -24,10 +24,8 @@ export async function bulkAddProgress(req, res, next) {
       });
     }
 
-    const created = [];
-    await prisma.$transaction(
-      studentIds.map((studentId) =>
-        (async (tx) => {
+    const created = await prisma.$transaction(async (tx) => {
+      return Promise.all(studentIds.map(async (studentId) => {
           // Teacher write-scope: only in the teacher's own groups.
           const teacherProfileId = req.user.role === "ADMIN"
             ? null
@@ -60,9 +58,8 @@ export async function bulkAddProgress(req, res, next) {
             },
           });
           return { studentId, ok: true, entry };
-        })
-      )
-    );
+      }));
+    });
 
     const successIds = created.filter(Boolean).map((r) => r.studentId);
     const failed = created.filter((r) => !r.ok);
@@ -119,32 +116,41 @@ export async function bulkAddMembers(req, res, next) {
       });
     }
 
-    const results = await prisma.$transaction(        studentIds.flatMap((studentId) =>
-        groupIds.map((groupId) =>
-          (async (tx) => {
+    const results = await prisma.$transaction(async (tx) => {
+      return Promise.all(studentIds.flatMap((studentId) =>
+        groupIds.map(async (groupId) => {
             const existing = await tx.groupMember.findFirst({
-              where: { groupId, studentId, isDeleted: false },
-              select: { id: true },
+              where: { groupId, studentId },
+              select: { id: true, isDeleted: true },
             });
-            if (existing) return { studentId, groupId, status: "already_member" };
+            if (existing && !existing.isDeleted) return { studentId, groupId, status: "already_member" };
 
-            const member = await tx.groupMember.create({
-              data: { groupId, studentId },
-            });
+            let member;
+            let auditAction = "CREATED";
+            if (existing) {
+              member = await tx.groupMember.update({
+                where: { id: existing.id },
+                data: { isDeleted: false },
+              });
+              auditAction = "RESTORED";
+            } else {
+              member = await tx.groupMember.create({
+                data: { groupId, studentId },
+              });
+            }
             await tx.auditLog.create({
               data: {
                 actorId: req.user.userId,
-                action: "CREATED",
+                action: auditAction,
                 entityType: "GroupMember",
                 entityId: member.id,
                 afterData: JSON.stringify(member),
               },
             });
             return { studentId, groupId, status: "added", memberId: member.id };
-          })
-        )
-      )
-    );
+        })
+      ));
+    });
 
     const added = results.filter((r) => r.status === "added");
     const already = results.filter((r) => r.status === "already_member");
@@ -204,21 +210,8 @@ export async function bulkStudentProfile(req, res, next) {
       });
     }
 
-    // Roll number global uniqueness inside this batch (avoid P2002 mid-transaction with an ugly failure).
-    const rollConflicts = [];
-    const groupRolls = new Map();
-    for (const id of studentIds) {
-      const s = existingById.get(id);
-      if (s) groupRolls.set(s.rollNumber, (groupRolls.get(s.rollNumber) || 0) + 1);
-    }
-    if (rollNumber && (groupRolls.get(rollNumber) ?? 1) > 1 && rollNumber !== "") {
-      // If a single new roll is shared among multiple targeted rows, that's a conflict only if
-      // another live row outside this batch already uses it — handled by unique constraint below.
-    }
-
-    const changes = await prisma.$transaction(
-      studentIds.map((id) =>
-        prisma.$transaction(async (tx) => {
+    const changes = await prisma.$transaction(async (tx) => {
+      return Promise.all(studentIds.map(async (id) => {
           const before = await tx.studentProfile.findUnique({ where: { id }, select: { id: true, rollNumber: true, yearOfAdmission: true, phone: true } });
           const updated = await tx.studentProfile.update({
             where: { id },
@@ -239,9 +232,8 @@ export async function bulkStudentProfile(req, res, next) {
             },
           });
           return { id, ok: true };
-        })
-      )
-    );
+      }));
+    });
 
 
     res.json({
