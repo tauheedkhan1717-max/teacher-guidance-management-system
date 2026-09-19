@@ -37,6 +37,9 @@ function loadSwaggerDoc() {
 export function createApp() {
   const app = express();
 
+  // Trust Render's load balancer so that secure cookies are properly set over HTTPS.
+  app.set("trust proxy", 1);
+
   // CLIENT_ORIGIN can be a single URL or comma-separated list for multi-deploy support.
   // e.g. "https://tgms.vercel.app,http://localhost:5173"
   const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
