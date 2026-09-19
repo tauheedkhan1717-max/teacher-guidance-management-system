@@ -15,6 +15,8 @@ export function notFound(req, res) {
 
 // The catch-all error handler. Every error thrown (or passed to next(err)) lands here.
 export function errorHandler(err, req, res, next) {
+  console.error("[errorHandler] Caught Error:", err);
+  
   // 1) Errors that already carry an HTTP status (custom errors set err.status).
   if (typeof err.status === "number" && err.status >= 400 && err.status < 600) {
     return res.status(err.status).json({ error: { message: err.message } });
